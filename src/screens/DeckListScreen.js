@@ -1,23 +1,36 @@
-import React from 'react';
-import { View, Text, Button, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Button } from "react-native";
 
-const decks = [
-  { id: '1', name: 'React Basics' },
-  { id: '2', name: 'JavaScript Advanced' },
-];
+export default function DeckListScreen({ navigation, decks, setDecks }) {
+  const addDeck = () => {
+    const newDeck = { id: Date.now().toString(), title: "New Deck", cards: [] };
+    setDecks((prev) => [...prev, newDeck]);
+    navigation.navigate("DeckDetail", { deckId: newDeck.id });
+  };
 
-export default function DeckListScreen({ navigation }) {
   return (
-    <View style={{ flex: 1, padding: 20 }}>
+    <View style={styles.container}>
+      <Button title="+ Add Deck" onPress={addDeck} />
       <FlatList
         data={decks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.navigate('DeckDetail', { deckId: item.id })}>
-            <Text style={{ fontSize: 20, marginVertical: 10 }}>{item.name}</Text>
+          <TouchableOpacity
+            style={styles.deck}
+            onPress={() => navigation.navigate("DeckDetail", { deckId: item.id })}
+          >
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.count}>{item.cards.length} cards</Text>
           </TouchableOpacity>
         )}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20 },
+  deck: { padding: 20, backgroundColor: "#f0f0f0", marginBottom: 10, borderRadius: 8 },
+  title: { fontSize: 20, fontWeight: "bold" },
+  count: { fontSize: 14, color: "#666" },
+});

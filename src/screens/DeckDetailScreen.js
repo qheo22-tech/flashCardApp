@@ -1,34 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, Button, FlatList, Alert } from 'react-native';
+// DeckDetailScreen.tsx
+import React from "react";
+import { View, Text, FlatList, TouchableOpacity, Button, StyleSheet } from "react-native";
 
-export default function DeckDetailScreen({ route, navigation }) {
+export default function DeckDetailScreen({ navigation, route, decks }) {
   const { deckId } = route.params;
-  const [cards, setCards] = useState([]);
+  const deck = decks.find(d => d.id === deckId);
 
-  const handleAddCard = () => {
-    navigation.navigate('Card', {
-      deckId,
-      onSave: (front, back) => {
-        setCards([...cards, { front, back }]);
-        Alert.alert('카드 추가 완료!', `Front: ${front}, Back: ${back}`);
-      },
-    });
-  };
+  if (!deck) return <Text>Deck not found</Text>;
 
   return (
-    <View style={{ flex: 1, padding: 20 }}>
-      <Text style={{ fontSize: 24, marginBottom: 20 }}>Deck Detail: {deckId}</Text>
-      <Button title="Add Card" onPress={handleAddCard} />
+    <View style={styles.container}>
+      <Text style={styles.title}>{deck.title}</Text>
+      <Text>{deck.cards.length} cards</Text>
+
+      <Button
+        title="+ Add Card"
+        onPress={() => navigation.navigate("AddCard", { deckId })}
+      />
+
       <FlatList
-        data={cards}
+        data={deck.cards}
         keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={{ marginVertical: 10, borderWidth: 1, padding: 10 }}>
-            <Text>Front: {item.front}</Text>
-            <Text>Back: {item.back}</Text>
-          </View>
+        renderItem={({ item, index }) => (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate("CardDetail", { card: item })}
+          >
+            <Text style={styles.cardText}>{item.question}</Text>
+          </TouchableOpacity>
         )}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
+  card: { padding: 15, backgroundColor: "#e0e0e0", marginBottom: 10, borderRadius: 5 },
+  cardText: { fontSize: 16 },
+});
