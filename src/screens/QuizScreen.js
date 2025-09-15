@@ -1,82 +1,81 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Button, StyleSheet, Alert } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 
-export default function QuizScreen({ route, navigation, decks }) {
-  const { deckId, onlyWrong } = route.params;
-  const [cards, setCards] = useState([]);
+export default function QuizScreen({ route, navigation, decks, setDecks }) {
+  const { deckId, retryWrong } = route.params || {};
+  const deck = decks.find((d) => d.id === deckId);
+
+  if (!deck || deck.cards.length === 0) {
+    Alert.alert("No cards", "This deck has no cards.");
+    navigation.goBack();
+    return null;
+  }
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [wrongCards, setWrongCards] = useState([]);
 
-  useEffect(() => {
-    const deck = decks.find(d => d.id === deckId);
-    if (!deck) return;
+  const card = deck.cards[currentIndex];
 
-    const loadQuiz = async () => {
-      let quizCards = deck.cards;
-      if (onlyWrong) {
-        const savedWrong = await AsyncStorage.getItem(`wrongCards_${deckId}`);
-        const wrongIds = savedWrong ? JSON.parse(savedWrong) : [];
-        quizCards = deck.cards.filter(c => wrongIds.includes(c.id));
-        if (quizCards.length === 0) {
-          Alert.alert("틀린 카드 없음", "틀린 카드가 없습니다.");
-          navigation.goBack();
-          return;
-        }
-      }
-      setCards(shuffleArray(quizCards));
-      setWrongCards([]);
-      setCurrentIndex(0);
-      setShowAnswer(false);
-    };
+  const handleAnswer = (isCorrect) => {
+    const updatedDecks = decks.map((d) => {
+      if (d.id !== deckId) return d;
+      const updatedCards = d.cards.map((c) => {
+        if (c.id !== card.id) return c;
+        return {
+          ...c,
+          attempts: (c.attempts || 0) + 1,
+          correct: isCorrect ? (c.correct || 0) + 1 : (c.correct || 0),
+          wrong: !isCorrect ? (c.wrong || 0) + 1 : (c.wrong || 0),
+        };
+      });
+      return { ...d, cards: updatedCards };
+    });
 
-    loadQuiz();
-  }, [deckId]);
+    setDecks(updatedDecks);
 
-  const shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
-
-  const markAnswer = async (isCorrect) => {
-    const card = cards[currentIndex];
-    let updatedWrong = [...wrongCards];
-    if (!isCorrect) updatedWrong.push(card.id);
-
-    setWrongCards(updatedWrong);
-
-    if (currentIndex + 1 >= cards.length) {
-      await AsyncStorage.setItem(`wrongCards_${deckId}`, JSON.stringify(updatedWrong));
-      Alert.alert("퀴즈 종료", `총 ${cards.length}문제 중 틀린 문제 ${updatedWrong.length}개`);
-      navigation.goBack();
+    if (currentIndex + 1 >= deck.cards.length) {
+      Alert.alert(
+        "Quiz Finished",
+        `Correct: ${deck.cards.filter(c => c.correct).length} / ${deck.cards.length}`,
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
     } else {
       setCurrentIndex(currentIndex + 1);
       setShowAnswer(false);
     }
   };
 
-  if (cards.length === 0) return null;
-
-  const card = cards[currentIndex];
-
   return (
     <View style={styles.container}>
-      <Text style={styles.question}>Q: {card.front}</Text>
-      {showAnswer && <Text style={styles.answer}>A: {card.back}</Text>}
-      <Button title={showAnswer ? "Next" : "Show Answer"} onPress={() => setShowAnswer(true)} />
-      {showAnswer && (
-        <View style={styles.buttons}>
-          <Button title="Correct" onPress={() => markAnswer(true)} />
-          <Button title="Wrong" onPress={() => markAnswer(false)} />
-        </View>
-      )}
-      <Text style={styles.progress}>{currentIndex + 1} / {cards.length}</Text>
+      <Text style={styles.question}>{card.front}</Text>
+      {showAnswer && <Text style={styles.answer}>{card.back}</Text>}
+      <TouchableOpacity onPress={() => setShowAnswer(!showAnswer)}>
+        <Text style={styles.showAnswerButton}>{showAnswer ? "Hide Answer" : "Show Answer"}</Text>
+      </TouchableOpacity>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={[styles.answerButton, { backgroundColor: "green" }]} onPress={() => handleAnswer(true)}>
+          <Text style={styles.buttonText}>Correct</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.answerButton, { backgroundColor: "red" }]} onPress={() => handleAnswer(false)}>
+          <Text style={styles.buttonText}>Wrong</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.stats}>
+        Attempts: {card.attempts || 0} | Correct: {card.correct || 0} | Wrong: {card.wrong || 0}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  question: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  answer: { fontSize: 20, color: "green", marginBottom: 20 },
-  buttons: { flexDirection: "row", justifyContent: "space-around", marginVertical: 20 },
-  progress: { textAlign: "center", fontSize: 16 },
+  container: { flex: 1, padding: 20, backgroundColor: "#f2f2f2" },
+  question: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
+  answer: { fontSize: 20, marginBottom: 20, color: "#555" },
+  showAnswerButton: { color: "blue", marginBottom: 20 },
+  buttonRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
+  answerButton: { padding: 15, borderRadius: 8, width: 120, alignItems: "center" },
+  buttonText: { color: "white", fontWeight: "bold" },
+  stats: { fontSize: 14, color: "#666", textAlign: "center" },
 });

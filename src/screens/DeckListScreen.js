@@ -1,33 +1,36 @@
-// DeckListScreen.js
 import React, { useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  TextInput,
+  Button,
+} from "react-native";
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
-  // 새 덱 추가
-  const addDeck = () => {
-    Alert.prompt(
-      "New Deck",
-      "Enter deck title",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "OK",
-          onPress: (title) => {
-            if (!title) return;
-            const newDeck = { id: Date.now().toString(), title, cards: [] };
-            setDecks([...decks, newDeck]);
-            navigation.navigate("DeckDetail", { deckId: newDeck.id });
-          },
-        },
-      ],
-      "plain-text"
-    );
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
+  const addDeck = () => setModalVisible(true);
+
+  const confirmAdd = () => {
+    if (!newTitle.trim()) return;
+    const newDeck = { id: Date.now().toString(), title: newTitle.trim(), cards: [] };
+    setDecks([...decks, newDeck]);
+    setNewTitle("");
+    setModalVisible(false);
+    //navigation.navigate("DeckDetail", { deckId: newDeck.id });
   };
 
-  // 덱 없을 때 중앙 + 버튼
+  const cancelAdd = () => {
+    setNewTitle("");
+    setModalVisible(false);
+  };
+
+  // 덱 없을 때
   if (decks.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -35,14 +38,22 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
           <Text style={styles.centerButtonText}>＋ Add Deck</Text>
         </TouchableOpacity>
         <Text style={styles.emptyText}>No decks yet</Text>
+
+        {/* 입력 모달 */}
+        <DeckInputModal
+          visible={modalVisible}
+          title={newTitle}
+          setTitle={setNewTitle}
+          onConfirm={confirmAdd}
+          onCancel={cancelAdd}
+        />
       </View>
     );
   }
 
-  // 덱이 하나라도 있을 때 리스트 + 상단 우측 + 버튼
+  // 덱 리스트 있을 때
   return (
     <View style={styles.container}>
-      {/* 상단 우측 버튼 */}
       <View style={styles.topRightButtonContainer}>
         <TouchableOpacity onPress={addDeck}>
           <Text style={styles.topRightButton}>＋</Text>
@@ -55,14 +66,49 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.deckItem}
-            onPress={() => navigation.navigate("DeckDetail", { deckId: item.id })}
+            onPress={() =>
+              navigation.navigate("DeckDetail", { deckId: item.id })
+            }
           >
             <Text style={styles.deckTitle}>{item.title}</Text>
             <Text style={styles.cardCount}>{item.cards.length} cards</Text>
           </TouchableOpacity>
         )}
       />
+
+      {/* 입력 모달 */}
+      <DeckInputModal
+        visible={modalVisible}
+        title={newTitle}
+        setTitle={setNewTitle}
+        onConfirm={confirmAdd}
+        onCancel={cancelAdd}
+      />
     </View>
+  );
+}
+
+// 모달을 별도 컴포넌트로 분리
+function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalBox}>
+          <Text style={styles.modalTitle}>New Deck</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Enter deck title"
+            value={title}
+            onChangeText={setTitle}
+            autoFocus
+          />
+          <View style={styles.modalButtons}>
+            <Button title="취소" onPress={onCancel} />
+            <Button title="확인" onPress={onConfirm} />
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -77,4 +123,27 @@ const styles = StyleSheet.create({
   deckItem: { padding: 20, backgroundColor: "white", borderRadius: 8, marginBottom: 10 },
   deckTitle: { fontSize: 20, fontWeight: "bold", color: "black" },
   cardCount: { fontSize: 14, color: "#666", marginTop: 5 },
+
+  // 모달 관련
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    width: "80%",
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 20,
+  },
+  modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
 });
