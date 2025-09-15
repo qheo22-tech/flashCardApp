@@ -1,16 +1,9 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  TextInput,
-  Button,
-} from "react-native";
+import React, { useState, useContext } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Button } from "react-native";
+import { LanguageContext } from "../contexts/LanguageContext";
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
+  const { strings } = useContext(LanguageContext);
   const [modalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState("");
 
@@ -22,7 +15,6 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
     setDecks([...decks, newDeck]);
     setNewTitle("");
     setModalVisible(false);
-    //navigation.navigate("DeckDetail", { deckId: newDeck.id });
   };
 
   const cancelAdd = () => {
@@ -30,81 +22,54 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
     setModalVisible(false);
   };
 
-  // 덱 없을 때
   if (decks.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <TouchableOpacity style={styles.centerButton} onPress={addDeck}>
-          <Text style={styles.centerButtonText}>＋ Add Deck</Text>
+          <Text style={styles.centerButtonText}>＋ {strings.newDeck}</Text>
         </TouchableOpacity>
-        <Text style={styles.emptyText}>No decks yet</Text>
+        <Text style={styles.emptyText}>{strings.noDecksYet}</Text>
 
-        {/* 입력 모달 */}
-        <DeckInputModal
-          visible={modalVisible}
-          title={newTitle}
-          setTitle={setNewTitle}
-          onConfirm={confirmAdd}
-          onCancel={cancelAdd}
-        />
+        <DeckInputModal visible={modalVisible} title={newTitle} setTitle={setNewTitle} onConfirm={confirmAdd} onCancel={cancelAdd} strings={strings} />
       </View>
     );
   }
 
-  // 덱 리스트 있을 때
   return (
     <View style={styles.container}>
-      <View style={styles.topRightButtonContainer}>
-        <TouchableOpacity onPress={addDeck}>
-          <Text style={styles.topRightButton}>＋</Text>
-        </TouchableOpacity>
-      </View>
+     <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 10 }}>
+       <TouchableOpacity onPress={addDeck}><Text style={styles.topRightButton}>＋</Text></TouchableOpacity>
+     </View>
+
 
       <FlatList
         data={decks}
         keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={{ justifyContent: "space-between", marginBottom: 10 }}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.deckItem}
-            onPress={() =>
-              navigation.navigate("DeckDetail", { deckId: item.id })
-            }
-          >
+          <TouchableOpacity style={styles.deckItemHorizontal} onPress={() => navigation.navigate("DeckDetail", { deckId: item.id })}>
             <Text style={styles.deckTitle}>{item.title}</Text>
-            <Text style={styles.cardCount}>{item.cards.length} cards</Text>
+            <Text style={styles.cardCount}>{item.cards.length} {strings.cards}</Text>
           </TouchableOpacity>
         )}
       />
 
-      {/* 입력 모달 */}
-      <DeckInputModal
-        visible={modalVisible}
-        title={newTitle}
-        setTitle={setNewTitle}
-        onConfirm={confirmAdd}
-        onCancel={cancelAdd}
-      />
+      <DeckInputModal visible={modalVisible} title={newTitle} setTitle={setNewTitle} onConfirm={confirmAdd} onCancel={cancelAdd} strings={strings} />
     </View>
   );
 }
 
-// 모달을 별도 컴포넌트로 분리
-function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel }) {
+function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings }) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalBox}>
-          <Text style={styles.modalTitle}>New Deck</Text>
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Enter deck title"
-            value={title}
-            onChangeText={setTitle}
-            autoFocus
-          />
+          <Text style={styles.modalTitle}>{strings.newDeck}</Text>
+          <TextInput style={styles.modalInput} placeholder={strings.enterDeckTitle} value={title} onChangeText={setTitle} autoFocus />
           <View style={styles.modalButtons}>
-            <Button title="취소" onPress={onCancel} />
-            <Button title="확인" onPress={onConfirm} />
+            <Button title={strings.cancel} onPress={onCancel} />
+            <Button title={strings.confirm} onPress={onConfirm} />
           </View>
         </View>
       </View>
@@ -118,32 +83,13 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, color: "#666", marginTop: 20 },
   centerButton: { padding: 20, backgroundColor: "white", borderRadius: 8 },
   centerButtonText: { fontSize: 18, fontWeight: "bold", color: "black" },
-  topRightButtonContainer: { alignItems: "flex-end", marginBottom: 10 },
   topRightButton: { fontSize: 28, color: "black" },
-  deckItem: { padding: 20, backgroundColor: "white", borderRadius: 8, marginBottom: 10 },
+  deckItemHorizontal: { flex: 1, marginHorizontal: 5, padding: 20, backgroundColor: "white", borderRadius: 8, minWidth: 150 },
   deckTitle: { fontSize: 20, fontWeight: "bold", color: "black" },
   cardCount: { fontSize: 14, color: "#666", marginTop: 5 },
-
-  // 모달 관련
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalBox: {
-    width: "80%",
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 20,
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
+  modalBox: { width: "80%", backgroundColor: "white", borderRadius: 10, padding: 20 },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 20,
-  },
+  modalInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 10, marginBottom: 20 },
   modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
 });

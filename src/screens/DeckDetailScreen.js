@@ -1,17 +1,22 @@
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import React, { useState, useContext } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, Modal, TextInput } from "react-native";
+import { LanguageContext } from "../contexts/LanguageContext"; // Context import
 
 export default function DeckDetailScreen({ route, navigation, decks, setDecks }) {
+  const { strings } = useContext(LanguageContext); // strings 가져오기
   const { deckId } = route.params;
   const deck = decks.find((d) => d.id === deckId);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [wrongThreshold, setWrongThreshold] = useState("1");
 
-  if (!deck) return <Text>Deck not found</Text>;
+  if (!deck) return <Text>{strings.deckNotFound || "Deck not found"}</Text>; // Context로 변경
 
+  // 덱 삭제
   const deleteDeck = () => {
-    Alert.alert("Delete Deck", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(strings.deleteDeck, strings.deleteConfirm || "Are you sure?", [
+      { text: strings.cancel, style: "cancel" },
       {
-        text: "Delete",
+        text: strings.confirm,
         style: "destructive",
         onPress: () => {
           const updated = decks.filter((d) => d.id !== deck.id);
@@ -22,22 +27,36 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
     ]);
   };
 
+  // 카드 추가
   const addCard = () => navigation.navigate("AddCard", { deckId: deck.id });
 
+  // 퀴즈 시작
   const startQuiz = () => {
     if (deck.cards.length === 0) {
-      Alert.alert("No cards", "This deck has no cards.");
+      Alert.alert(strings.noCards, strings.noCardsMsg || "This deck has no cards.");
       return;
     }
-    navigation.navigate("Quiz", { deckId: deck.id });
+    const shuffled = [...deck.cards].sort(() => Math.random() - 0.5);
+    navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled });
   };
 
-  const retryWrongCards = () => {
-    if (deck.cards.length === 0) {
-      Alert.alert("No cards", "This deck has no cards.");
+  // 틀린 문제 모달 열기
+  const openRetryWrongModal = () => setModalVisible(true);
+
+  const startRetryWrong = () => {
+    const threshold = parseInt(wrongThreshold);
+    if (isNaN(threshold) || threshold < 1) {
+      Alert.alert(strings.invalidNumber || "Invalid number", strings.enterValidNumber || "Please enter a valid number.");
       return;
     }
-    navigation.navigate("Quiz", { deckId: deck.id, retryWrong: true });
+    const filtered = deck.cards.filter((c) => (c.wrong || 0) >= threshold);
+    if (filtered.length === 0) {
+      Alert.alert(strings.noWrongCards || "No cards", `${strings.noWrongCardsMsg || "No cards with wrong attempts ≥"} ${threshold}`);
+      return;
+    }
+    const shuffled = filtered.sort(() => Math.random() - 0.5);
+    setModalVisible(false);
+    navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, retryWrong: true });
   };
 
   return (
@@ -52,14 +71,14 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
       </View>
 
       <Text style={styles.title}>{deck.title}</Text>
-      <Text style={styles.cardCount}>{deck.cards.length} cards</Text>
+      <Text style={styles.cardCount}>{deck.cards.length} {strings.cards}</Text>
 
       <View style={styles.quizContainer}>
         <TouchableOpacity style={[styles.quizButton, { backgroundColor: "white" }]} onPress={startQuiz}>
-          <Text style={[styles.quizText, { color: "black" }]}>Start Quiz</Text>
+          <Text style={[styles.quizText, { color: "black" }]}>{strings.startQuiz}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.quizButton, { backgroundColor: "white" }]} onPress={retryWrongCards}>
-          <Text style={[styles.quizText, { color: "black" }]}>Retry Wrong Cards</Text>
+        <TouchableOpacity style={[styles.quizButton, { backgroundColor: "white" }]} onPress={openRetryWrongModal}>
+          <Text style={[styles.quizText, { color: "black" }]}>{strings.retryWrong}</Text>
         </TouchableOpacity>
       </View>
 
@@ -73,11 +92,38 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
           >
             <Text style={styles.cardFront}>{item.front}</Text>
             <Text style={styles.cardStats}>
-              Attempts: {item.attempts || 0} | Correct: {item.correct || 0} | Wrong: {item.wrong || 0}
+              {strings.attempts}: {item.attempts || 0} | {strings.correct}: {item.correct || 0} | {strings.wrong}: {item.wrong || 0}
             </Text>
           </TouchableOpacity>
         )}
       />
+
+      <Modal visible={modalVisible} transparent animationType="fade">
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Text style={{ marginBottom: 10 }}>
+              {strings.enterWrongThreshold || "최소 틀린 횟수 입력:"}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="number-pad"
+              value={wrongThreshold}
+              onChangeText={setWrongThreshold}
+            />
+            <View style={{ flexDirection: "row", marginTop: 15 }}>
+              <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
+                <Text style={{ color: "white", fontWeight: "bold" }}>{strings.cancel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "green" }]}
+                onPress={startRetryWrong}
+              >
+                <Text style={{ color: "white", fontWeight: "bold" }}>{strings.retryWrong}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -94,5 +140,19 @@ const styles = StyleSheet.create({
   quizText: { fontSize: 18, fontWeight: "bold" },
   cardItem: { padding: 15, backgroundColor: "white", borderRadius: 8, marginBottom: 10 },
   cardFront: { fontSize: 16, color: "black" },
-  cardStats: { fontSize: 12, color: "#888", marginTop: 5 },
+  cardStats: { fontSize: 12, color: "#666", marginTop: 5 },
+  modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  modalContainer: { width: 250, padding: 20, backgroundColor: "white", borderRadius: 8 },
+  modalInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 10, marginBottom: 10 },
+  modalButton: {
+    padding: 10,
+    backgroundColor: "red",
+    borderRadius: 6,
+    width: 100,
+    justifyContent: "center",  // 글씨 수직 중앙
+    alignItems: "center",      // 글씨 수평 중앙
+  },
 });
+
+
+// styles 그대로 사용
