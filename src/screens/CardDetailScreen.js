@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from "react-native";
+import { View, TouchableOpacity, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import QuillEditor, { QuillToolbar } from "react-native-cn-quill";
 
@@ -52,6 +52,31 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
     }
   };
 
+  // 카드 삭제
+  const deleteCard = async () => {
+    Alert.alert("삭제", "이 카드를 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "확인",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const updatedDecks = decks.map((d) =>
+              d.id === deckId
+                ? { ...d, cards: d.cards.filter((c) => c.id !== cardId) }
+                : d
+            );
+            setDecks(updatedDecks);
+            await AsyncStorage.setItem("decks", JSON.stringify(updatedDecks));
+            navigation.goBack();
+          } catch (e) {
+            console.warn("삭제 실패:", e);
+          }
+        },
+      },
+    ]);
+  };
+
   // 숨기기 버튼 (front → back 순서로 검사)
   const hideSelection = async () => {
     try {
@@ -81,6 +106,10 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
       <View style={styles.topRow}>
         <TouchableOpacity onPress={saveCard} style={styles.iconButton}>
           <Text style={styles.iconText}>💾 저장</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={deleteCard} style={styles.iconButton}>
+          <Text style={[styles.iconText, { color: "red" }]}>🗑 삭제</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={hideSelection} style={styles.iconButton}>
