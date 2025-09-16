@@ -1,3 +1,4 @@
+// src/screens/DeckListScreen.js
 import React, { useState, useContext } from "react";
 import {
   View,
@@ -7,10 +8,9 @@ import {
   StyleSheet,
   Modal,
   TextInput,
-  Button,
-  Alert,
 } from "react-native";
 import { LanguageContext } from "../contexts/LanguageContext";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
   const { strings } = useContext(LanguageContext);
@@ -19,7 +19,9 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
 
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedDecks, setSelectedDecks] = useState([]);
+  const [deleteDeckModalVisible, setDeleteDeckModalVisible] = useState(false);
 
+  // 덱 추가
   const addDeck = () => setModalVisible(true);
 
   const confirmAdd = () => {
@@ -35,57 +37,48 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
     setModalVisible(false);
   };
 
+  // 삭제 모드 토글
   const toggleDeleteMode = () => {
     setDeleteMode(!deleteMode);
     setSelectedDecks([]);
   };
 
+  // 덱 선택/해제
   const toggleSelectDeck = (deckId) => {
     setSelectedDecks((prev) =>
       prev.includes(deckId) ? prev.filter((id) => id !== deckId) : [...prev, deckId]
     );
   };
 
-  const confirmDelete = () => {
-    if (selectedDecks.length === 0) {
-      Alert.alert(strings.deleteDeck, strings.noCards || "선택된 덱이 없습니다.");
-      return;
-    }
-    Alert.alert(strings.deleteDeck, strings.deleteConfirm || "삭제하시겠습니까?", [
-      { text: strings.cancel, style: "cancel" },
-      {
-        text: strings.confirm,
-        style: "destructive",
-        onPress: () => {
-          const updated = decks.filter((d) => !selectedDecks.includes(d.id));
-          setDecks(updated);
-          setDeleteMode(false);
-          setSelectedDecks([]);
-        },
-      },
-    ]);
+  // 덱 삭제 확인
+  const handleConfirmDeleteDecks = () => {
+    const updated = decks.filter((d) => !selectedDecks.includes(d.id));
+    setDecks(updated);
+    setDeleteMode(false);
+    setSelectedDecks([]);
+    setDeleteDeckModalVisible(false);
   };
 
   return (
     <View style={styles.container}>
       {/* 상단 버튼 */}
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 10 }}>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 10, alignItems: "center" }}>
         {deleteMode ? (
           <>
-            <TouchableOpacity onPress={confirmDelete}>
-              <Text style={styles.topRightButton}>🗑</Text>
+            <TouchableOpacity onPress={() => setDeleteDeckModalVisible(true)}>
+              <MaterialIcons name="delete" size={28} color="black" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={toggleDeleteMode}>
-              <Text style={styles.topRightButton}>✖</Text>
+            <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
+              <MaterialIcons name="close" size={28} color="black" />
             </TouchableOpacity>
           </>
         ) : (
           <>
             <TouchableOpacity onPress={addDeck}>
-              <Text style={styles.topRightButton}>＋</Text>
+              <MaterialIcons name="add" size={28} color="black" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={toggleDeleteMode}>
-              <Text style={styles.topRightButton}>🗑</Text>
+            <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
+              <MaterialIcons name="delete" size={28} color="black" />
             </TouchableOpacity>
           </>
         )}
@@ -110,16 +103,6 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
                   : navigation.navigate("DeckDetail", { deckId: item.id })
               }
             >
-              {deleteMode && (
-                <View style={styles.checkboxContainer}>
-                  <View
-                    style={[
-                      styles.checkbox,
-                      isSelected && styles.checkboxSelected,
-                    ]}
-                  />
-                </View>
-              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.deckTitle}>{item.title}</Text>
                 <Text style={styles.cardCount}>
@@ -131,6 +114,7 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
         }}
       />
 
+      {/* 덱 추가 모달 */}
       <DeckInputModal
         visible={modalVisible}
         title={newTitle}
@@ -139,6 +123,32 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
         onCancel={cancelAdd}
         strings={strings}
       />
+
+      {/* 덱 삭제 모달 */}
+      <Modal visible={deleteDeckModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>{strings.deleteDeck}</Text>
+            <Text style={{ marginBottom: 20 }}>
+              {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#ccc" }]}
+                onPress={() => setDeleteDeckModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>{strings.cancel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "black" }]}
+                onPress={handleConfirmDeleteDecks}
+              >
+                <Text style={[styles.modalButtonText, { color: "white" }]}>{strings.confirm}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -157,8 +167,12 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
             autoFocus
           />
           <View style={styles.modalButtons}>
-            <Button title={strings.cancel} onPress={onCancel} />
-            <Button title={strings.confirm} onPress={onConfirm} />
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ccc" }]} onPress={onCancel}>
+              <Text style={styles.modalButtonText}>{strings.cancel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "black" }]} onPress={onConfirm}>
+              <Text style={[styles.modalButtonText, { color: "white" }]}>{strings.confirm}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -168,7 +182,6 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f2f2f2" },
-  topRightButton: { fontSize: 28, color: "black", marginHorizontal: 10 },
   deckItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -176,24 +189,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: "white",
     borderRadius: 8,
-  },
-  checkboxContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#666",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  checkbox: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  checkboxSelected: {
-    backgroundColor: "red",
   },
   deckTitle: { fontSize: 20, fontWeight: "bold", color: "black" },
   cardCount: { fontSize: 14, color: "#666", marginTop: 5 },
@@ -203,7 +198,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  modalBox: { width: "80%", backgroundColor: "white", borderRadius: 10, padding: 20 },
+  modalBox: { 
+    width: "80%", 
+    maxWidth: 400, 
+    backgroundColor: "white", 
+    borderRadius: 10, 
+    padding: 20 
+  },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   modalInput: {
     borderWidth: 1,
@@ -212,5 +213,19 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 20,
   },
-  modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "black",
+  },
 });
