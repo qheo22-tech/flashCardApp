@@ -16,33 +16,18 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
   const [front, setFront] = useState(card.front || "");
   const [back, setBack] = useState(card.back || "");
 
-  // 특정 영역 숨기기
-  const hideSelection = async (editorRef) => {
-    try {
-      const range = await editorRef.current?.getSelection();
-      if (!range || range.length === 0) return;
-      editorRef.current?.formatText(range.index, range.length, {
-        color: "transparent",
-        background: "black",
-        class: "hidden-text",
-      });
-    } catch (e) {
-      console.warn("숨기기 실패:", e);
-    }
-  };
-
-  // 전체 보이기 (plain text 변환 → 저장 X)
+  // 전체 숨김처리한것 보이기
   const showAllHidden = async (editorRef, html) => {
     try {
       if (!html) return;
       const plainText = html.replace(/<[^>]+>/g, "");
       await editorRef.current?.setContents([{ insert: plainText }]);
     } catch (e) {
-      console.warn("보이기 실패:", e);
+      console.warn("숨김처리한것 보이기 실패:", e);
     }
   };
 
-  // 저장 실행 (숨김 태그 포함)
+  // 저장
   const saveCard = async () => {
     try {
       const frontHtml = await frontRef.current?.getHtml();
@@ -67,83 +52,111 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
     }
   };
 
+  // 숨기기 버튼 (front → back 순서로 검사)
+  const hideSelection = async () => {
+    try {
+      let range = await frontRef.current?.getSelection();
+      let targetRef = frontRef;
+
+      if (!range || range.length === 0) {
+        range = await backRef.current?.getSelection();
+        targetRef = backRef;
+      }
+
+      if (range && range.length > 0) {
+        targetRef.current?.formatText(range.index, range.length, {
+          color: "transparent",
+          background: "black",
+          class: "hidden-text",
+        });
+      }
+    } catch (e) {
+      console.warn("숨기기 실패:", e);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      {/* 상단 저장 버튼 */}
+    <View style={{ flex: 1 }}>
+      {/* 🔹 고정된 상단바 */}
       <View style={styles.topRow}>
         <TouchableOpacity onPress={saveCard} style={styles.iconButton}>
           <Text style={styles.iconText}>💾 저장</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity onPress={hideSelection} style={styles.iconButton}>
+          <Text style={styles.iconText}>🙈 드래그해서 숨기기</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Front */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Front</Text>
-        <View style={styles.row}>
-          <TouchableOpacity onPress={() => hideSelection(frontRef)} style={styles.iconButton}>
-            <Text style={styles.iconText}>🙈 숨기기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={async () => showAllHidden(frontRef, await frontRef.current?.getHtml())}
-            style={styles.iconButton}
-          >
-            <Text style={styles.iconText}>👀 보이기</Text>
-          </TouchableOpacity>
+      {/* 🔹 스크롤 가능한 본문 */}
+      <ScrollView style={styles.container}>
+        {/* Front */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Front</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              onPress={async () =>
+                showAllHidden(frontRef, await frontRef.current?.getHtml())
+              }
+              style={styles.iconButton}
+            >
+              <Text style={styles.iconText}>👀 숨김처리한것 보이기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-      <QuillEditor
-        style={styles.editor}
-        ref={frontRef}
-        initialHtml={front}
-        customStyles={[
-          `
-          .ql-editor .hidden-text {
-            color: transparent !important;
-            background-color: black !important;
-          }
-          .ql-editor .hidden-text::selection {
-            color: black !important;
-            background-color: yellow !important;
-          }
-        `,
-        ]}
-      />
-      <QuillToolbar editor={frontRef} options="full" theme="light" />
+        <QuillEditor
+          style={styles.editor}
+          ref={frontRef}
+          initialHtml={front}
+          customStyles={[
+            `
+            .ql-editor .hidden-text {
+              color: transparent !important;
+              background-color: black !important;
+            }
+            .ql-editor .hidden-text::selection {
+              color: black !important;
+              background-color: yellow !important;
+            }
+          `,
+          ]}
+        />
+        <QuillToolbar editor={frontRef} options="full" theme="light" />
 
-      {/* Back */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Back</Text>
-        <View style={styles.row}>
-          <TouchableOpacity onPress={() => hideSelection(backRef)} style={styles.iconButton}>
-            <Text style={styles.iconText}>🙈 숨기기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={async () => showAllHidden(backRef, await backRef.current?.getHtml())}
-            style={styles.iconButton}
-          >
-            <Text style={styles.iconText}>👀 보이기</Text>
-          </TouchableOpacity>
+        {/* Back */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Back</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              onPress={async () =>
+                showAllHidden(backRef, await backRef.current?.getHtml())
+              }
+              style={styles.iconButton}
+            >
+              <Text style={styles.iconText}>👀 숨김처리한것 보이기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-      <QuillEditor
-        style={styles.editor}
-        ref={backRef}
-        initialHtml={back}
-        customStyles={[
-          `
-          .ql-editor .hidden-text {
-            color: transparent !important;
-            background-color: black !important;
-          }
-          .ql-editor .hidden-text::selection {
-            color: black !important;
-            background-color: yellow !important;
-          }
-        `,
-        ]}
-      />
-      <QuillToolbar editor={backRef} options="full" theme="light" />
-    </ScrollView>
+        <QuillEditor
+          style={styles.editor}
+          ref={backRef}
+          initialHtml={back}
+          customStyles={[
+            `
+            .ql-editor .hidden-text {
+              color: transparent !important;
+              background-color: black !important;
+            }
+            .ql-editor .hidden-text::selection {
+              color: black !important;
+              background-color: yellow !important;
+            }
+          `,
+          ]}
+        />
+        <QuillToolbar editor={backRef} options="full" theme="light" />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -154,10 +167,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     padding: 10,
     backgroundColor: "#ddd",
+    borderBottomWidth: 1,
+    borderBottomColor: "#bbb",
   },
   sectionHeader: {
     flexDirection: "row",
-    justifyContent: "space-between", // 제목 왼쪽 / 버튼 오른쪽
+    justifyContent: "space-between",
     alignItems: "center",
     marginHorizontal: 10,
     marginTop: 10,
