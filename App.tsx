@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LanguageProvider } from "./src/contexts/LanguageContext";
+import { ThemeProvider } from "./src/contexts/ThemeContext";  // 👈 추가
 
 // 화면 임포트
 import DeckListScreen from "./src/screens/DeckListScreen";
@@ -44,34 +45,36 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="DeckList"
-          screenOptions={{
-            headerRight: () => <LanguageToggleButton />, // 모든 화면 헤더에 버튼
-          }}
-        >
-          <Stack.Screen name="DeckList">
-            {(props) => <DeckListScreen {...props} decks={decks} setDecks={setDecks} />}
-          </Stack.Screen>
+      <ThemeProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="DeckList"
+            screenOptions={{
+              headerRight: () => <LanguageToggleButton />, // 모든 화면 헤더에 버튼
+            }}
+          >
+            <Stack.Screen name="DeckList">
+              {(props) => <DeckListScreen {...props} decks={decks} setDecks={setDecks} />}
+            </Stack.Screen>
 
-          <Stack.Screen name="DeckDetail">
-            {(props) => <DeckDetailScreen {...props} decks={decks} setDecks={setDecks} />}
-          </Stack.Screen>
+            <Stack.Screen name="DeckDetail">
+              {(props) => <DeckDetailScreen {...props} decks={decks} setDecks={setDecks} />}
+            </Stack.Screen>
 
-          <Stack.Screen name="AddCard">
-            {(props) => <AddCardScreen {...props} decks={decks} setDecks={setDecks} />}
-          </Stack.Screen>
+            <Stack.Screen name="AddCard">
+              {(props) => <AddCardScreen {...props} decks={decks} setDecks={setDecks} />}
+            </Stack.Screen>
 
-          <Stack.Screen name="CardDetail">
-            {(props) => <CardDetailScreen {...props} decks={decks} setDecks={setDecks} />}
-          </Stack.Screen>
+            <Stack.Screen name="CardDetail">
+              {(props) => <CardDetailScreen {...props} decks={decks} setDecks={setDecks} />}
+            </Stack.Screen>
 
-          <Stack.Screen name="Quiz">
-            {(props) => <QuizScreen {...props} decks={decks} setDecks={setDecks} />}
-          </Stack.Screen>
-        </Stack.Navigator>
-      </NavigationContainer>
+            <Stack.Screen name="Quiz">
+              {(props) => <QuizScreen {...props} decks={decks} setDecks={setDecks} />}
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
+      </ThemeProvider>
     </LanguageProvider>
   );
 }

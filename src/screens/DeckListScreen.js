@@ -9,11 +9,14 @@ import {
   Modal,
   TextInput,
 } from "react-native";
+import { ThemeContext } from "../contexts/ThemeContext";
 import { LanguageContext } from "../contexts/LanguageContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
+  const colors = useContext(ThemeContext);   // 👈 테마 색상 가져오기
   const { strings } = useContext(LanguageContext);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState("");
 
@@ -60,25 +63,25 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 상단 버튼 */}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 10, alignItems: "center" }}>
         {deleteMode ? (
           <>
             <TouchableOpacity onPress={() => setDeleteDeckModalVisible(true)}>
-              <MaterialIcons name="delete" size={28} color="black" />
+              <MaterialIcons name="delete" size={28} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
-              <MaterialIcons name="close" size={28} color="black" />
+              <MaterialIcons name="close" size={28} color={colors.text} />
             </TouchableOpacity>
           </>
         ) : (
           <>
             <TouchableOpacity onPress={addDeck}>
-              <MaterialIcons name="add" size={28} color="black" />
+              <MaterialIcons name="add" size={28} color={colors.text} />
             </TouchableOpacity>
             <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
-              <MaterialIcons name="delete" size={28} color="black" />
+              <MaterialIcons name="delete" size={28} color={colors.text} />
             </TouchableOpacity>
           </>
         )}
@@ -95,6 +98,7 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
             <TouchableOpacity
               style={[
                 styles.deckItem,
+                { backgroundColor: colors.card, borderColor: colors.border },
                 deleteMode && isSelected && { borderColor: "red", borderWidth: 2 },
               ]}
               onPress={() =>
@@ -104,8 +108,8 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
               }
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.deckTitle}>{item.title}</Text>
-                <Text style={styles.cardCount}>
+                <Text style={[styles.deckTitle, { color: colors.text }]}>{item.title}</Text>
+                <Text style={[styles.cardCount, { color: colors.placeholder }]}>
                   {item.cards.length} {strings.cards}
                 </Text>
               </View>
@@ -127,23 +131,23 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
       {/* 덱 삭제 모달 */}
       <Modal visible={deleteDeckModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>{strings.deleteDeck}</Text>
-            <Text style={{ marginBottom: 20 }}>
+          <View style={[styles.modalBox, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{strings.deleteDeck}</Text>
+            <Text style={{ marginBottom: 20, color: colors.text }}>
               {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#ccc" }]}
+                style={[styles.modalButton, { backgroundColor: colors.border }]}
                 onPress={() => setDeleteDeckModalVisible(false)}
               >
-                <Text style={styles.modalButtonText}>{strings.cancel}</Text>
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>{strings.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "black" }]}
+                style={[styles.modalButton, { backgroundColor: colors.text }]}
                 onPress={handleConfirmDeleteDecks}
               >
-                <Text style={[styles.modalButtonText, { color: "white" }]}>{strings.confirm}</Text>
+                <Text style={[styles.modalButtonText, { color: colors.background }]}>{strings.confirm}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -154,24 +158,27 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
 }
 
 function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings }) {
+  const colors = useContext(ThemeContext);  // 👈 모달도 테마 적용
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={styles.modalBox}>
-          <Text style={styles.modalTitle}>{strings.newDeck}</Text>
+        <View style={[styles.modalBox, { backgroundColor: colors.card }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>{strings.newDeck}</Text>
           <TextInput
-            style={styles.modalInput}
+            style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
             placeholder={strings.enterDeckTitle}
+            placeholderTextColor={colors.placeholder}
             value={title}
             onChangeText={setTitle}
             autoFocus
           />
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "#ccc" }]} onPress={onCancel}>
-              <Text style={styles.modalButtonText}>{strings.cancel}</Text>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.border }]} onPress={onCancel}>
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>{strings.cancel}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: "black" }]} onPress={onConfirm}>
-              <Text style={[styles.modalButtonText, { color: "white" }]}>{strings.confirm}</Text>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.text }]} onPress={onConfirm}>
+              <Text style={[styles.modalButtonText, { color: colors.background }]}>{strings.confirm}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -181,34 +188,32 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f2f2f2" },
+  container: { flex: 1, padding: 20 },
   deckItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 15,
     marginBottom: 10,
-    backgroundColor: "white",
     borderRadius: 8,
+    borderWidth: 1,
   },
-  deckTitle: { fontSize: 20, fontWeight: "bold", color: "black" },
-  cardCount: { fontSize: 14, color: "#666", marginTop: 5 },
+  deckTitle: { fontSize: 20, fontWeight: "bold" },
+  cardCount: { fontSize: 14, marginTop: 5 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
   },
-  modalBox: { 
-    width: "80%", 
-    maxWidth: 400, 
-    backgroundColor: "white", 
-    borderRadius: 10, 
-    padding: 20 
+  modalBox: {
+    width: "80%",
+    maxWidth: 400,
+    borderRadius: 10,
+    padding: 20,
   },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   modalInput: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 6,
     padding: 10,
     marginBottom: 20,
@@ -226,6 +231,5 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "black",
   },
 });

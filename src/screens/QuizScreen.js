@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import RenderHTML from "react-native-render-html";
 import { LanguageContext } from "../contexts/LanguageContext";
+import { ThemeContext } from "../contexts/ThemeContext"; // ✅ 추가
 
 // 🔹 덱 디테일과 동일한 숨김 변환 함수
 const normalizeHidden = (html) => {
@@ -38,6 +39,7 @@ const baseClassesStyles = {
 
 export default function QuizScreen({ route, navigation, decks, setDecks }) {
   const { strings } = useContext(LanguageContext);
+  const colors = useContext(ThemeContext); // ✅ 테마 색상
   const { deckId, cards: passedCards } = route.params || {};
   const deck = decks.find((d) => d.id === deckId);
 
@@ -62,7 +64,7 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
 
   // ✅ 카드별 classesStyles (해제 시엔 검정 배경 제거)
   const classesStyles = revealed[card.id]
-    ? { "hidden-text": { color: "#000", backgroundColor: "transparent" } }
+    ? { "hidden-text": { color: colors.text, backgroundColor: "transparent" } }
     : baseClassesStyles;
 
   const handleAnswer = (isCorrect) => {
@@ -95,22 +97,24 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 진행도 + 숨김 해제 버튼 */}
       <View style={styles.topRow}>
-        <Text style={styles.progress}>
+        <Text style={[styles.progress, { color: colors.text }]}>
           {currentIndex + 1} / {cards.length}
         </Text>
         <TouchableOpacity onPress={toggleReveal} style={styles.revealButton}>
-          <Text style={styles.revealText}>
+          <Text style={[styles.revealText, { color: colors.accent }]}>
             {revealed[card.id] ? "🙈 다시 숨기기" : "👀 숨김 해제"}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* 문제 */}
-      <View style={styles.questionBox}>
-        <Text style={styles.sectionLabel}>{strings.question || "문제"}</Text>
+      <View style={[styles.questionBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.text }]}>
+          {strings.question || "문제"}
+        </Text>
         <RenderHTML
           contentWidth={width}
           source={{ html: normalizeHidden(card.front || "") }}
@@ -120,8 +124,10 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
 
       {/* 정답 */}
       {showAnswer && (
-        <View style={styles.answerBox}>
-          <Text style={styles.sectionLabel}>{strings.answer || "정답"}</Text>
+        <View style={[styles.answerBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+            {strings.answer || "정답"}
+          </Text>
           <RenderHTML
             contentWidth={width}
             source={{ html: normalizeHidden(card.back || "") }}
@@ -132,7 +138,7 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
 
       {/* 정답 보기/숨기기 */}
       <TouchableOpacity onPress={() => setShowAnswer(!showAnswer)}>
-        <Text style={styles.showAnswerButton}>
+        <Text style={[styles.showAnswerButton, { color: colors.accent }]}>
           {showAnswer
             ? strings.hideAnswer || "정답 숨기기"
             : strings.showAnswer || "정답 보기"}
@@ -145,26 +151,31 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
           style={[styles.answerButton, { backgroundColor: "green" }]}
           onPress={() => handleAnswer(true)}
         >
-          <Text style={styles.buttonText}>{strings.correct || "정답"}</Text>
+          <Text style={[styles.buttonText, { color: colors.background }]}>
+            {strings.correct || "정답"}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.answerButton, { backgroundColor: "red" }]}
           onPress={() => handleAnswer(false)}
         >
-          <Text style={styles.buttonText}>{strings.wrong || "오답"}</Text>
+          <Text style={[styles.buttonText, { color: colors.background }]}>
+            {strings.wrong || "오답"}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* 통계 */}
-      <Text style={styles.stats}>
-        {strings.attempts}: {card.attempts || 0} | {strings.correct}: {card.correct || 0} | {strings.wrong}: {card.wrong || 0}
+      <Text style={[styles.stats, { color: colors.placeholder }]}>
+        {strings.attempts}: {card.attempts || 0} | {strings.correct}: {card.correct || 0} |{" "}
+        {strings.wrong}: {card.wrong || 0}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f2f2f2" },
+  container: { flex: 1, padding: 20 },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -173,34 +184,29 @@ const styles = StyleSheet.create({
   },
   progress: { fontSize: 16, fontWeight: "bold" },
   revealButton: { padding: 5 },
-  revealText: { color: "blue", fontSize: 14 },
+  revealText: { fontSize: 14 },
 
-  sectionLabel: { fontSize: 14, fontWeight: "bold", marginBottom: 8, color: "#333" },
+  sectionLabel: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
   questionBox: {
-    backgroundColor: "white",
     borderRadius: 8,
     padding: 15,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#ccc",
   },
   answerBox: {
-    backgroundColor: "#eef9ff",
     borderRadius: 8,
     padding: 15,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#99d1f2",
   },
 
   showAnswerButton: {
-    color: "blue",
     marginBottom: 20,
     textAlign: "center",
     fontSize: 16,
   },
   buttonRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
   answerButton: { padding: 15, borderRadius: 8, width: 120, alignItems: "center" },
-  buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
-  stats: { fontSize: 14, color: "#666", textAlign: "center" },
+  buttonText: { fontWeight: "bold", fontSize: 16 },
+  stats: { fontSize: 14, textAlign: "center" },
 });
