@@ -7,15 +7,15 @@ import {
   StyleSheet,
   Alert,
   useWindowDimensions,
+  TextInput,
 } from "react-native";
 import RenderHTML from "react-native-render-html";
 import { LanguageContext } from "../contexts/LanguageContext";
-import { ThemeContext } from "../contexts/ThemeContext"; // ✅ 추가
+import { ThemeContext } from "../contexts/ThemeContext";
 
-// 🔹 덱 디테일과 동일한 숨김 변환 함수
+// 숨김 변환 함수
 const normalizeHidden = (html) => {
   if (!html) return "";
-
   return html.replace(
     /<span style="[^"]*(color:\s*transparent|background-color:\s*black)[^"]*">(.*?)<\/span>/gi,
     (match, _style, innerText) => {
@@ -27,7 +27,7 @@ const normalizeHidden = (html) => {
   );
 };
 
-// 🔹 덱 디테일과 동일한 숨김 스타일
+// 숨김 스타일
 const baseClassesStyles = {
   "hidden-text": {
     color: "transparent",
@@ -39,8 +39,8 @@ const baseClassesStyles = {
 
 export default function QuizScreen({ route, navigation, decks, setDecks }) {
   const { strings } = useContext(LanguageContext);
-  const colors = useContext(ThemeContext); // ✅ 테마 색상
-  const { deckId, cards: passedCards } = route.params || {};
+  const colors = useContext(ThemeContext);
+  const { deckId, cards: passedCards, mode } = route.params || {};
   const deck = decks.find((d) => d.id === deckId);
 
   if (!deck || !passedCards || passedCards.length === 0) {
@@ -53,20 +53,21 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [revealed, setRevealed] = useState({});
+  const [userInput, setUserInput] = useState(""); // ✅ 사용자 입력 값
   const { width } = useWindowDimensions();
 
   const card = cards[currentIndex];
 
-  // ✅ 카드별 숨김 해제 토글
+  // 카드별 숨김 해제 토글
   const toggleReveal = () => {
     setRevealed((prev) => ({ ...prev, [card.id]: !prev[card.id] }));
   };
 
-  // ✅ 카드별 classesStyles (해제 시엔 검정 배경 제거)
   const classesStyles = revealed[card.id]
     ? { "hidden-text": { color: colors.text, backgroundColor: "transparent" } }
     : baseClassesStyles;
 
+  // 통계 반영
   const handleAnswer = (isCorrect) => {
     const updatedDecks = decks.map((d) => {
       if (d.id !== deckId) return d;
@@ -83,22 +84,37 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
     });
     setDecks(updatedDecks);
 
+    // 마지막 문제일 때 결과 출력
     if (currentIndex + 1 >= cards.length) {
-      const correctCount = cards.filter((c) => (c.correct || 0) > 0).length;
+      // 전체 통계 계산
+      const totalAttempts = cards.length;
+      const totalCorrect = cards.filter((c) => (c.correct || 0) > 0).length;
+      const totalWrong = totalAttempts - totalCorrect;
+
       Alert.alert(
-        strings.quizFinished || "Quiz Finished",
-        `${strings.correct}: ${correctCount} / ${cards.length}`,
+        strings.quizFinished || "퀴즈 종료",
+        `푼 문제 수: ${totalAttempts}\n맞춘 문제 수: ${totalCorrect}\n틀린 문제 수: ${totalWrong}`,
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } else {
       setCurrentIndex((i) => i + 1);
       setShowAnswer(false);
+      setUserInput(""); // ✅ 다음 문제 시 입력칸 초기화
     }
+  };
+
+  // solve 모드일 때 입력값 검사
+  const checkUserAnswer = () => {
+    // HTML 태그 제거 후 텍스트 비교
+    const correctAnswer = (card.back || "").replace(/<[^>]+>/g, "").trim();
+    const userAnswer = userInput.trim();
+    const isCorrect = userAnswer === correctAnswer;
+    handleAnswer(isCorrect);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* 진행도 + 숨김 해제 버튼 */}
+      {/* 진행도 + 숨김 해제 */}
       <View style={styles.topRow}>
         <Text style={[styles.progress, { color: colors.text }]}>
           {currentIndex + 1} / {cards.length}
@@ -122,8 +138,22 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
         />
       </View>
 
-      {/* 정답 */}
-      {showAnswer && (
+      {/* ✅ solve 모드일 때 입력칸 */}
+      {mode === "solve" && (
+        <TextInput
+          style={[
+            styles.inputBox,
+            { color: colors.text, borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+          placeholder="정답을 입력하세요"
+          placeholderTextColor={colors.placeholder}
+          value={userInput}
+          onChangeText={setUserInput}
+        />
+      )}
+
+      {/* 정답 표시 (보기 모드에서만 버튼으로 토글) */}
+      {mode !== "solve" && showAnswer && (
         <View style={[styles.answerBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.text }]}>
             {strings.answer || "정답"}
@@ -136,33 +166,47 @@ export default function QuizScreen({ route, navigation, decks, setDecks }) {
         </View>
       )}
 
-      {/* 정답 보기/숨기기 */}
-      <TouchableOpacity onPress={() => setShowAnswer(!showAnswer)}>
-        <Text style={[styles.showAnswerButton, { color: colors.accent }]}>
-          {showAnswer
-            ? strings.hideAnswer || "정답 숨기기"
-            : strings.showAnswer || "정답 보기"}
-        </Text>
-      </TouchableOpacity>
+      {mode !== "solve" && (
+        <TouchableOpacity onPress={() => setShowAnswer(!showAnswer)}>
+          <Text style={[styles.showAnswerButton, { color: colors.accent }]}>
+            {showAnswer
+              ? strings.hideAnswer || "정답 숨기기"
+              : strings.showAnswer || "정답 보기"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-      {/* 정답/오답 */}
+      {/* 정답/오답 버튼 */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.answerButton, { backgroundColor: "green" }]}
-          onPress={() => handleAnswer(true)}
-        >
-          <Text style={[styles.buttonText, { color: colors.background }]}>
-            {strings.correct || "정답"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.answerButton, { backgroundColor: "red" }]}
-          onPress={() => handleAnswer(false)}
-        >
-          <Text style={[styles.buttonText, { color: colors.background }]}>
-            {strings.wrong || "오답"}
-          </Text>
-        </TouchableOpacity>
+        {mode === "solve" ? (
+          <TouchableOpacity
+            style={[styles.answerButton, { backgroundColor: colors.accent }]}
+            onPress={checkUserAnswer}
+          >
+            <Text style={[styles.buttonText, { color: colors.background }]}>
+              제출
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.answerButton, { backgroundColor: "green" }]}
+              onPress={() => handleAnswer(true)}
+            >
+              <Text style={[styles.buttonText, { color: colors.background }]}>
+                {strings.correct || "정답"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.answerButton, { backgroundColor: "red" }]}
+              onPress={() => handleAnswer(false)}
+            >
+              <Text style={[styles.buttonText, { color: colors.background }]}>
+                {strings.wrong || "오답"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* 통계 */}
@@ -199,7 +243,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
   },
-
+  inputBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 16,
+  },
   showAnswerButton: {
     marginBottom: 20,
     textAlign: "center",

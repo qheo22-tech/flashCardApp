@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LanguageProvider } from "./src/contexts/LanguageContext";
 import { ThemeProvider } from "./src/contexts/ThemeContext";  // 👈 추가
+import { LogBox } from "react-native";
+
 
 // 화면 임포트
 import DeckListScreen from "./src/screens/DeckListScreen";
@@ -17,6 +19,10 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [decks, setDecks] = useState([]);
+
+  // 모든 경고 숨기기
+    LogBox.ignoreAllLogs(); 
+
 
   // 앱 시작 시 AsyncStorage에서 덱 로드
   useEffect(() => {

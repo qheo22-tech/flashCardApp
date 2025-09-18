@@ -130,10 +130,10 @@ android {
 
         release {
             // gradle.properties에 저장된 값들을 불러와서 사용
-            storeFile file(MYAPP_RELEASE_STORE_FILE)
-            storePassword MYAPP_RELEASE_STORE_PASSWORD
-            keyAlias MYAPP_RELEASE_KEY_ALIAS
-            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            //storeFile file(MYAPP_RELEASE_STORE_FILE)
+            //storePassword MYAPP_RELEASE_STORE_PASSWORD
+            //keyAlias MYAPP_RELEASE_KEY_ALIAS
+            //keyPassword MYAPP_RELEASE_KEY_PASSWORD
         }
     }
 
@@ -143,7 +143,7 @@ android {
         }
         release {
             // 이제 release 빌드는 debug 키가 아니라 release 키로 서명됨
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug  
             minifyEnabled false        // 필요하다면 true + ProGuard 설정
             shrinkResources false
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -154,14 +154,9 @@ android {
 
 
 dependencies {
-    // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android") // ✅ 추가
 
-    if (hermesEnabled.toBoolean()) {
-        implementation("com.facebook.react:hermes-android")
-    } else {
-        implementation jscFlavor
-    }
 }
 
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

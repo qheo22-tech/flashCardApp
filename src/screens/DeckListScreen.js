@@ -62,6 +62,9 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
     setDeleteDeckModalVisible(false);
   };
 
+  // ✅ 다크모드 여부 확인
+  const isDarkMode = colors.background === "#000";
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 상단 버튼 */}
@@ -126,28 +129,39 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
         onConfirm={confirmAdd}
         onCancel={cancelAdd}
         strings={strings}
+        isDarkMode={isDarkMode}
+        colors={colors}
       />
 
       {/* 덱 삭제 모달 */}
       <Modal visible={deleteDeckModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{strings.deleteDeck}</Text>
-            <Text style={{ marginBottom: 20, color: colors.text }}>
+          <View style={[styles.modalBox, { backgroundColor: "#fff" }]}>
+            <Text style={[styles.modalTitle, { color: isDarkMode ? "#000" : colors.text }]}>
+              {strings.deleteDeck}
+            </Text>
+            <Text style={{ marginBottom: 20, color: isDarkMode ? "#000" : colors.text }}>
               {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
             </Text>
             <View style={styles.modalButtons}>
+              {/* 취소 버튼 (추가 모달과 동일 스타일) */}
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.border }]}
+                style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
                 onPress={() => setDeleteDeckModalVisible(false)}
               >
-                <Text style={[styles.modalButtonText, { color: colors.text }]}>{strings.cancel}</Text>
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  {strings.cancel}
+                </Text>
               </TouchableOpacity>
+
+              {/* 확인 버튼 (추가 모달과 동일 스타일) */}
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.text }]}
+                style={[styles.modalButton, { backgroundColor: colors.accent }]}
                 onPress={handleConfirmDeleteDecks}
               >
-                <Text style={[styles.modalButtonText, { color: colors.background }]}>{strings.confirm}</Text>
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  {strings.confirm}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -157,16 +171,19 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
   );
 }
 
-function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings }) {
-  const colors = useContext(ThemeContext);  // 👈 모달도 테마 적용
-
+function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings, isDarkMode, colors }) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalBox, { backgroundColor: colors.card }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>{strings.newDeck}</Text>
+        <View style={[styles.modalBox, { backgroundColor: "#fff" }]}>
+          <Text style={[styles.modalTitle, { color: isDarkMode ? "#000" : colors.text }]}>
+            {strings.newDeck}
+          </Text>
           <TextInput
-            style={[styles.modalInput, { color: colors.text, borderColor: colors.border }]}
+            style={[
+              styles.modalInput,
+              { color: isDarkMode ? "#000" : colors.text, borderColor: colors.border },
+            ]}
             placeholder={strings.enterDeckTitle}
             placeholderTextColor={colors.placeholder}
             value={title}
@@ -174,11 +191,24 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
             autoFocus
           />
           <View style={styles.modalButtons}>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.border }]} onPress={onCancel}>
-              <Text style={[styles.modalButtonText, { color: colors.text }]}>{strings.cancel}</Text>
+            {/* 취소 버튼 */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
+              onPress={onCancel}
+            >
+              <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                {strings.cancel}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.text }]} onPress={onConfirm}>
-              <Text style={[styles.modalButtonText, { color: colors.background }]}>{strings.confirm}</Text>
+
+            {/* 확인 버튼 */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={onConfirm}
+            >
+              <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                {strings.confirm}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

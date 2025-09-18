@@ -1,7 +1,16 @@
-import React, { useRef, useState } from "react";
-import { View, TouchableOpacity, Text, StyleSheet, ScrollView, Alert } from "react-native";
+// CardDetailScreen.js
+import React, { useRef, useState, useContext } from "react";
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import QuillEditor, { QuillToolbar } from "react-native-cn-quill";
+import { ThemeContext } from "../contexts/ThemeContext"; // ✅ 테마 컨텍스트 가져오기
 
 export default function CardDetailScreen({ navigation, decks, setDecks, route }) {
   const { deckId, cardId } = route.params || {};
@@ -15,6 +24,9 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
   const backRef = useRef(null);
   const [front, setFront] = useState(card.front || "");
   const [back, setBack] = useState(card.back || "");
+
+  // ✅ 전역 색상 가져오기
+  const colors = useContext(ThemeContext);
 
   // 전체 숨김처리한것 보이기
   const showAllHidden = async (editorRef, html) => {
@@ -100,12 +112,29 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
     }
   };
 
+  // ✅ 전역 테마 기반 Quill 스타일
+  const editorCustomStyle = `
+    .ql-editor {
+      color: ${colors.text} !important;
+      background-color: ${colors.card} !important;
+      font-weight: bold !important;
+    }
+    .ql-editor .hidden-text {
+      color: transparent !important;
+      background-color: black !important;
+    }
+    .ql-editor .hidden-text::selection {
+      color: black !important;
+      background-color: yellow !important;
+    }
+  `;
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* 🔹 고정된 상단바 */}
-      <View style={styles.topRow}>
+      <View style={[styles.topRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={saveCard} style={styles.iconButton}>
-          <Text style={styles.iconText}>💾 저장</Text>
+          <Text style={[styles.iconText, { color: colors.text }]}>💾 저장</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={deleteCard} style={styles.iconButton}>
@@ -113,15 +142,15 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
         </TouchableOpacity>
 
         <TouchableOpacity onPress={hideSelection} style={styles.iconButton}>
-          <Text style={styles.iconText}>🙈 드래그해서 숨기기</Text>
+          <Text style={[styles.iconText, { color: colors.text }]}>🙈 드래그해서 숨기기</Text>
         </TouchableOpacity>
       </View>
 
       {/* 🔹 스크롤 가능한 본문 */}
-      <ScrollView style={styles.container}>
+      <ScrollView style={{ flex: 1 }}>
         {/* Front */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Front</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Front</Text>
           <View style={styles.row}>
             <TouchableOpacity
               onPress={async () =>
@@ -129,32 +158,23 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
               }
               style={styles.iconButton}
             >
-              <Text style={styles.iconText}>👀 숨김처리한것 보이기</Text>
+              <Text style={[styles.iconText, { color: colors.accent }]}>
+                👀 숨김처리한것 보이기
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
         <QuillEditor
-          style={styles.editor}
+          style={[styles.editor, { backgroundColor: colors.card }]}
           ref={frontRef}
           initialHtml={front}
-          customStyles={[
-            `
-            .ql-editor .hidden-text {
-              color: transparent !important;
-              background-color: black !important;
-            }
-            .ql-editor .hidden-text::selection {
-              color: black !important;
-              background-color: yellow !important;
-            }
-          `,
-          ]}
+          customStyles={[editorCustomStyle]}
         />
         <QuillToolbar editor={frontRef} options="full" theme="light" />
 
         {/* Back */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Back</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Back</Text>
           <View style={styles.row}>
             <TouchableOpacity
               onPress={async () =>
@@ -162,26 +182,17 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
               }
               style={styles.iconButton}
             >
-              <Text style={styles.iconText}>👀 숨김처리한것 보이기</Text>
+              <Text style={[styles.iconText, { color: colors.accent }]}>
+                👀 숨김처리한것 보이기
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
         <QuillEditor
-          style={styles.editor}
+          style={[styles.editor, { backgroundColor: colors.card }]}
           ref={backRef}
           initialHtml={back}
-          customStyles={[
-            `
-            .ql-editor .hidden-text {
-              color: transparent !important;
-              background-color: black !important;
-            }
-            .ql-editor .hidden-text::selection {
-              color: black !important;
-              background-color: yellow !important;
-            }
-          `,
-          ]}
+          customStyles={[editorCustomStyle]}
         />
         <QuillToolbar editor={backRef} options="full" theme="light" />
       </ScrollView>
@@ -190,14 +201,11 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f2f2f2" },
   topRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     padding: 10,
-    backgroundColor: "#ddd",
     borderBottomWidth: 1,
-    borderBottomColor: "#bbb",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -206,13 +214,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginTop: 10,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "black" },
+  sectionTitle: { fontSize: 18, fontWeight: "bold" },
   row: { flexDirection: "row" },
   iconButton: { marginLeft: 10, padding: 5 },
   iconText: { fontSize: 14 },
   editor: {
-    height: 200,
-    backgroundColor: "white",
+    height: 160, // ✅ AddCard처럼 크기 줄여서 편하게 입력 가능
     borderRadius: 8,
     margin: 10,
     padding: 10,
