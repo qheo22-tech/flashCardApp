@@ -15,13 +15,18 @@ import CardDetailScreen from "./src/screens/CardDetailScreen";
 import QuizScreen from "./src/screens/QuizScreen";
 import LanguageToggleButton from "./src/components/LanguageToggleButton";
 
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+
+
   const [decks, setDecks] = useState([]);
 
   // 모든 경고 숨기기
     LogBox.ignoreAllLogs(); 
+
+
 
 
   // 앱 시작 시 AsyncStorage에서 덱 로드

@@ -12,6 +12,8 @@ import {
 import { ThemeContext } from "../contexts/ThemeContext";
 import { LanguageContext } from "../contexts/LanguageContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { exportData, importData } from "../utils/fileManager";
+
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
   const colors = useContext(ThemeContext);   // 👈 테마 색상 가져오기
@@ -23,6 +25,28 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedDecks, setSelectedDecks] = useState([]);
   const [deleteDeckModalVisible, setDeleteDeckModalVisible] = useState(false);
+
+
+  // 내보내기
+  const handleExport = async () => {
+    await exportData(decks);
+  };
+
+  // 불러오기
+  const handleImport = async () => {
+    const imported = await importData();
+    if (imported) {
+      setDecks(imported);
+    }
+  };
+
+  
+  const handleSave = async () => {
+    await saveToDirectory(decks);
+  };
+
+
+  
 
   // 덱 추가
   const addDeck = () => setModalVisible(true);
@@ -86,10 +110,24 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
             <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
               <MaterialIcons name="delete" size={28} color={colors.text} />
             </TouchableOpacity>
-          </>
-        )}
-      </View>
+             {/* 📤 공유 내보내기 */}
+            <TouchableOpacity onPress={handleExport} style={{ marginRight: 15 }}>
+              <MaterialIcons name="share" size={28} color={colors.text} />
+            </TouchableOpacity>
 
+            {/* 💾 저장하기 (경로 선택) */}
+            <TouchableOpacity onPress={handleSave} style={{ marginRight: 15 }}>
+              <MaterialIcons name="save-alt" size={28} color={colors.text} />
+            </TouchableOpacity>
+
+            {/* 📂 불러오기 */}
+            <TouchableOpacity onPress={handleImport}>
+              <MaterialIcons name="folder-open" size={28} color={colors.text} />
+            </TouchableOpacity>
+              </>
+            )}
+      </View>
+      
       {/* 덱 리스트 */}
       <FlatList
         data={decks}
