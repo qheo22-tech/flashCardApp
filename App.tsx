@@ -3,9 +3,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LanguageProvider } from "./src/contexts/LanguageContext";
-import { ThemeProvider } from "./src/contexts/ThemeContext";  // 👈 추가
-import { LogBox } from "react-native";
-
+import { ThemeProvider } from "./src/contexts/ThemeContext";
+import { LogBox, Alert, Linking, Platform } from "react-native";
+import VersionCheck from "react-native-version-check"; // ✅ 버전 체크 라이브러리 추가
 
 // 화면 임포트
 import DeckListScreen from "./src/screens/DeckListScreen";
@@ -15,19 +15,51 @@ import CardDetailScreen from "./src/screens/CardDetailScreen";
 import QuizScreen from "./src/screens/QuizScreen";
 import LanguageToggleButton from "./src/components/LanguageToggleButton";
 
-
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-
-
   const [decks, setDecks] = useState([]);
+  const [isBlocked, setIsBlocked] = useState(false); // ✅ 업데이트 필요 여부
 
   // 모든 경고 숨기기
-    LogBox.ignoreAllLogs(); 
+  LogBox.ignoreAllLogs();
 
+  // ✅ 앱 실행 시 버전 체크
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const latestVersion = await VersionCheck.getLatestVersion(); // 스토어 최신 버전
+        const currentVersion = VersionCheck.getCurrentVersion(); // 현재 앱 버전
 
+        console.log("📱 현재 버전:", currentVersion, "🛒 스토어 최신 버전:", latestVersion);
 
+        if (VersionCheck.needUpdate({ currentVersion, latestVersion }).isNeeded) {
+          setIsBlocked(true); // 기능 차단
+          Alert.alert(
+            "업데이트 필요",
+            "앱을 최신 버전으로 업데이트해야 사용 가능합니다.",
+            [
+              {
+                text: "업데이트 하기",
+                onPress: async () => {
+                  const storeUrl =
+                    Platform.OS === "ios"
+                      ? await VersionCheck.getAppStoreUrl()
+                      : await VersionCheck.getPlayStoreUrl();
+                  Linking.openURL(storeUrl);
+                },
+              },
+            ],
+            { cancelable: false } // 닫기 불가
+          );
+        }
+      } catch (error) {
+        console.error("버전 체크 실패:", error);
+      }
+    };
+
+    checkVersion();
+  }, []);
 
   // 앱 시작 시 AsyncStorage에서 덱 로드
   useEffect(() => {
@@ -53,6 +85,11 @@ export default function App() {
     };
     saveDecks();
   }, [decks]);
+
+  // ✅ 업데이트 필요 시 화면 차단
+  if (isBlocked) {
+    return null; // 아무 화면도 안 보여줌 → Alert로 업데이트 강제
+  }
 
   return (
     <LanguageProvider>

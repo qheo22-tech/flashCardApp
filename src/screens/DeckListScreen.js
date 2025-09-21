@@ -8,131 +8,238 @@ import {
   StyleSheet,
   Modal,
   TextInput,
+  PermissionsAndroid,
+  Platform,
 } from "react-native";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { LanguageContext } from "../contexts/LanguageContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
-import { exportData, importData } from "../utils/fileManager";
-
+import { exportData, importData, testPick } from "../utils/fileManager"; // ✅ 파일매니저에서 불러오기
 
 export default function DeckListScreen({ navigation, decks, setDecks }) {
-  const colors = useContext(ThemeContext);   // 👈 테마 색상 가져오기
+  const colors = useContext(ThemeContext);
   const { strings } = useContext(LanguageContext);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState("");
 
-  const [deleteMode, setDeleteMode] = useState(false);
+  // 모드: "none" | "delete" | "share"
+  const [mode, setMode] = useState("none");
   const [selectedDecks, setSelectedDecks] = useState([]);
   const [deleteDeckModalVisible, setDeleteDeckModalVisible] = useState(false);
 
+  /**
+   * ✅ 권한 요청 함수 (안드로이드 전용)
+   */
+  const requestStoragePermission = async () => {
+    if (Platform.OS !== "android") return true;
 
-  // 내보내기
-  const handleExport = async () => {
-    await exportData(decks);
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES, // Android 13+
+      {
+        title: "저장소 권한",
+        message: "덱 파일을 가져오기 위해 저장소 접근 권한이 필요합니다.",
+        buttonPositive: "확인",
+        buttonNegative: "취소",
+      }
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
   };
 
-  // 불러오기
-  const handleImport = async () => {
-    const imported = await importData();
-    if (imported) {
-      setDecks(imported);
+/**
+ * 내보내기 (전체 / 선택 덱)
+ */
+const handleExport = async () => {
+  if (mode === "share") {
+    if (selectedDecks.length === 0) {
+      alert("선택된 덱이 없습니다.");
+      return;
     }
+
+    const filtered = decks.filter((d) => selectedDecks.includes(d.id));
+
+    if (filtered.length === 1) {
+      // ✅ 덱이 1개 → 덱 이름으로 저장
+      await exportData(filtered, filtered[0].title);
+    } else {
+      // ✅ 덱이 여러 개 → 첫 번째 덱 + 외 N개
+      const firstName = filtered[0].title;
+      const fileName = `${firstName}_외${filtered.length - 1}개`;
+      await exportData(filtered, fileName);
+    }
+
+    closeMode();
+  } else {
+    // ✅ 전체 덱 내보내기 (기본 이름)
+    await exportData(decks, "flashcards_backup");
+  }
+};
+
+
+/**
+ * 불러오기 (덱 추가)
+ */
+const handleImport = async () => {
+  const hasPermission = await requestStoragePermission();
+  if (!hasPermission) {
+    alert("저장소 접근 권한이 필요합니다.");
+    return;
+  }
+
+  const imported = await importData();
+  console.log("📂 불러온 데이터:", imported);
+
+  if (imported) {
+    // ✅ 배열이 아니면 배열로 감싸주기
+    const importedDecks = Array.isArray(imported) ? imported : [imported];
+
+    setDecks((prev) => {
+      const merged = [...prev, ...importedDecks];
+      // id 중복 제거
+      const unique = merged.filter(
+        (deck, index, self) =>
+          index === self.findIndex((d) => d.id === deck.id)
+      );
+      console.log("📂 최종 저장:", unique);
+      return unique;
+    });
+  } else {
+    alert("불러온 덱이 없습니다.");
+  }
+};
+
+
+  /**
+   * 🧪 테스트용 파일 선택 (JSON 내용 콘솔 출력만 함)
+   */
+  const handleTestPick = async () => {
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      alert("저장소 접근 권한이 필요합니다.");
+      return;
+    }
+
+    const picked = await testPick();
+    console.log("🧪 testPick 결과:", picked);
   };
 
-  
-  const handleSave = async () => {
-    await saveToDirectory(decks);
+  /**
+   * 🗑 덱 삭제 실행
+   */
+  const handleConfirmDeleteDecks = () => {
+    if (selectedDecks.length === 0) {
+      alert("삭제할 덱을 선택하세요.");
+      return;
+    }
+    const updated = decks.filter((d) => !selectedDecks.includes(d.id));
+    setDecks(updated);
+    closeMode();
+    setDeleteDeckModalVisible(false);
   };
 
-
-  
-
-  // 덱 추가
+  // ➕ 덱 추가
   const addDeck = () => setModalVisible(true);
-
   const confirmAdd = () => {
     if (!newTitle.trim()) return;
-    const newDeck = { id: Date.now().toString(), title: newTitle.trim(), cards: [] };
+    const newDeck = {
+      id: Date.now().toString(),
+      title: newTitle.trim(),
+      cards: [],
+    };
     setDecks([...decks, newDeck]);
     setNewTitle("");
     setModalVisible(false);
   };
-
   const cancelAdd = () => {
     setNewTitle("");
     setModalVisible(false);
   };
 
-  // 삭제 모드 토글
-  const toggleDeleteMode = () => {
-    setDeleteMode(!deleteMode);
+  // 선택 모드 종료
+  const closeMode = () => {
+    setMode("none");
     setSelectedDecks([]);
   };
 
   // 덱 선택/해제
   const toggleSelectDeck = (deckId) => {
     setSelectedDecks((prev) =>
-      prev.includes(deckId) ? prev.filter((id) => id !== deckId) : [...prev, deckId]
+      prev.includes(deckId)
+        ? prev.filter((id) => id !== deckId)
+        : [...prev, deckId]
     );
   };
 
-  // 덱 삭제 확인
-  const handleConfirmDeleteDecks = () => {
-    const updated = decks.filter((d) => !selectedDecks.includes(d.id));
-    setDecks(updated);
-    setDeleteMode(false);
-    setSelectedDecks([]);
-    setDeleteDeckModalVisible(false);
-  };
-
-  // ✅ 다크모드 여부 확인
+  // ✅ 다크모드 여부
   const isDarkMode = colors.background === "#000";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 상단 버튼 */}
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 10, alignItems: "center" }}>
-        {deleteMode ? (
-          <>
-            <TouchableOpacity onPress={() => setDeleteDeckModalVisible(true)}>
-              <MaterialIcons name="delete" size={28} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
-              <MaterialIcons name="close" size={28} color={colors.text} />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity onPress={addDeck}>
-              <MaterialIcons name="add" size={28} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleDeleteMode} style={{ marginLeft: 10 }}>
-              <MaterialIcons name="delete" size={28} color={colors.text} />
-            </TouchableOpacity>
-             {/* 📤 공유 내보내기 */}
-            <TouchableOpacity onPress={handleExport} style={{ marginRight: 15 }}>
-              <MaterialIcons name="share" size={28} color={colors.text} />
-            </TouchableOpacity>
+      <View
+  style={{
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 10,
+    alignItems: "center",
+  }}
+>
+  {mode === "delete" ? (
+    <>
+      {/* 선택된 덱 삭제 */}
+      <TouchableOpacity style={styles.iconButton} onPress={() => {
+        if (selectedDecks.length === 0) {
+          alert("삭제할 덱을 선택하세요.");
+          return;
+        }
+        setDeleteDeckModalVisible(true);
+      }}>
+        <MaterialIcons name="delete" size={28} color={colors.text} />
+      </TouchableOpacity>
 
-            {/* 💾 저장하기 (경로 선택) */}
-            <TouchableOpacity onPress={handleSave} style={{ marginRight: 15 }}>
-              <MaterialIcons name="save-alt" size={28} color={colors.text} />
-            </TouchableOpacity>
+      <TouchableOpacity style={styles.iconButton} onPress={closeMode}>
+        <MaterialIcons name="close" size={28} color={colors.text} />
+      </TouchableOpacity>
+    </>
+  ) : mode === "share" ? (
+    <>
+      {/* 선택된 덱 공유 */}
+      <TouchableOpacity style={styles.iconButton} onPress={handleExport}>
+        <MaterialIcons name="share" size={28} color={colors.text} />
+      </TouchableOpacity>
 
-            {/* 📂 불러오기 */}
-            <TouchableOpacity onPress={handleImport}>
-              <MaterialIcons name="folder-open" size={28} color={colors.text} />
-            </TouchableOpacity>
-              </>
-            )}
-      </View>
-      
+      <TouchableOpacity style={styles.iconButton} onPress={closeMode}>
+        <MaterialIcons name="close" size={28} color={colors.text} />
+      </TouchableOpacity>
+    </>
+  ) : (
+    <>
+      {/* 덱 추가 */}
+      <TouchableOpacity style={styles.iconButton} onPress={addDeck}>
+        <MaterialIcons name="add" size={28} color={colors.text} />
+      </TouchableOpacity>
+
+      {/* 삭제 모드 진입 */}
+      <TouchableOpacity style={styles.iconButton} onPress={() => setMode("delete")}>
+        <MaterialIcons name="delete" size={28} color={colors.text} />
+      </TouchableOpacity>
+
+      {/* 공유 모드 진입 */}
+      <TouchableOpacity style={styles.iconButton} onPress={() => setMode("share")}>
+        <MaterialIcons name="share" size={28} color={colors.text} />
+      </TouchableOpacity>
+
+      {/* 불러오기 */}
+      <TouchableOpacity style={styles.iconButton} onPress={handleImport}>
+        <MaterialIcons name="folder-open" size={28} color={colors.text} />
+      </TouchableOpacity>
+    </>
+  )}
+</View>
       {/* 덱 리스트 */}
       <FlatList
         data={decks}
         keyExtractor={(item) => item.id}
-        numColumns={1}
         renderItem={({ item }) => {
           const isSelected = selectedDecks.includes(item.id);
           return (
@@ -140,10 +247,10 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
               style={[
                 styles.deckItem,
                 { backgroundColor: colors.card, borderColor: colors.border },
-                deleteMode && isSelected && { borderColor: "red", borderWidth: 2 },
+                mode !== "none" && isSelected && { borderColor: "red", borderWidth: 2 },
               ]}
               onPress={() =>
-                deleteMode
+                mode !== "none"
                   ? toggleSelectDeck(item.id)
                   : navigation.navigate("DeckDetail", { deckId: item.id })
               }
@@ -182,24 +289,17 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
               {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
             </Text>
             <View style={styles.modalButtons}>
-              {/* 취소 버튼 (추가 모달과 동일 스타일) */}
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
                 onPress={() => setDeleteDeckModalVisible(false)}
               >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
-                  {strings.cancel}
-                </Text>
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.cancel}</Text>
               </TouchableOpacity>
-
-              {/* 확인 버튼 (추가 모달과 동일 스타일) */}
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: colors.accent }]}
                 onPress={handleConfirmDeleteDecks}
               >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
-                  {strings.confirm}
-                </Text>
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.confirm}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -209,14 +309,13 @@ export default function DeckListScreen({ navigation, decks, setDecks }) {
   );
 }
 
+/* 🔹 덱 추가 모달 */
 function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings, isDarkMode, colors }) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={[styles.modalBox, { backgroundColor: "#fff" }]}>
-          <Text style={[styles.modalTitle, { color: isDarkMode ? "#000" : colors.text }]}>
-            {strings.newDeck}
-          </Text>
+          <Text style={[styles.modalTitle, { color: isDarkMode ? "#000" : colors.text }]}>{strings.newDeck}</Text>
           <TextInput
             style={[
               styles.modalInput,
@@ -229,24 +328,17 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
             autoFocus
           />
           <View style={styles.modalButtons}>
-            {/* 취소 버튼 */}
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
               onPress={onCancel}
             >
-              <Text style={[styles.modalButtonText, { color: "#fff" }]}>
-                {strings.cancel}
-              </Text>
+              <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.cancel}</Text>
             </TouchableOpacity>
-
-            {/* 확인 버튼 */}
             <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: colors.accent }]}
               onPress={onConfirm}
             >
-              <Text style={[styles.modalButtonText, { color: "#fff" }]}>
-                {strings.confirm}
-              </Text>
+              <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.confirm}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -255,7 +347,14 @@ function DeckInputModal({ visible, title, setTitle, onConfirm, onCancel, strings
   );
 }
 
+/* 스타일 */
 const styles = StyleSheet.create({
+   container: { flex: 1, padding: 20 },
+  iconButton: {
+    marginHorizontal: 5,   // 버튼 간격 일정하게
+    padding: 6,            // 터치 영역 확대
+    borderRadius: 6,
+  },
   container: { flex: 1, padding: 20 },
   deckItem: {
     flexDirection: "row",

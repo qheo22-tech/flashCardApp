@@ -1,20 +1,19 @@
+// utils/fileManager.js
 import RNFS from "react-native-fs";
 import Share from "react-native-share";
-import DocumentPicker from "@react-native-documents/picker";
-import { Platform } from "react-native";
-
+import DocumentPicker, { types } from "react-native-document-picker";
 
 /**
- * 공유하기 (Share Sheet 열기)
+ * 📤 덱 내보내기 (.json 확장자)
  */
-export const exportData = async (data) => {
+export const exportData = async (data, filename = "flashcards_backup") => {
   try {
-    const path = `${RNFS.CachesDirectoryPath}/flashcards_backup.json`;
+    const path = `${RNFS.CachesDirectoryPath}/${filename}.json`;
     await RNFS.writeFile(path, JSON.stringify(data, null, 2), "utf8");
 
     await Share.open({
       urls: [`file://${path}`],
-      type: "text/plain", // 더 많은 앱에 표시
+      type: "application/json", // ✅ JSON MIME 타입
       failOnCancel: false,
     });
   } catch (err) {
@@ -23,13 +22,19 @@ export const exportData = async (data) => {
 };
 
 /**
- * 파일 선택 후 불러오기
+ * 📂 덱 불러오기 (json 파일만 허용)
  */
 export const importData = async () => {
   try {
     const result = await DocumentPicker.pickSingle({
-      type: [DocumentPicker.types.allFiles],
+      type: ["application/json"], // ✅ json만 선택 (일부 안드로이드 기기는 무시할 수도 있음)
     });
+
+    // ✅ 확장자 검사 (안드로이드 대비)
+    if (!result.name.toLowerCase().endsWith(".json")) {
+      alert("⚠️ JSON 파일만 선택할 수 있습니다.");
+      return null;
+    }
 
     let filePath = result.uri;
     if (filePath.startsWith("content://")) {
@@ -41,7 +46,10 @@ export const importData = async () => {
     const fileContent = await RNFS.readFile(filePath, "utf8");
     return JSON.parse(fileContent);
   } catch (err) {
-    if (!DocumentPicker.isCancel(err)) console.error("❌ Import 실패:", err);
+    if (!DocumentPicker.isCancel(err)) {
+      console.error("❌ Import 실패:", err);
+      alert("❌ JSON 파일 불러오기 실패");
+    }
     return null;
   }
 };
