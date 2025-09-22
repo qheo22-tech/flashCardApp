@@ -99,27 +99,48 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
 
   // 퀴즈 시작 (보기)
   const startQuizView = () => {
-    if (deck.cards.length === 0) return;
-    exitDeleteMode(); // ✅ 삭제 모드 해제
+    if (deck.cards.length === 0) {
+      Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 퀴즈를 시작하세요.");
+      return;
+    }
+    exitDeleteMode();
     const shuffled = [...deck.cards].sort(() => Math.random() - 0.5);
     navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, mode: "view" });
   };
 
   // 퀴즈 시작 (정답풀기)
   const startQuizSolve = () => {
-    if (deck.cards.length === 0) return;
-    exitDeleteMode(); // ✅ 삭제 모드 해제
+    if (deck.cards.length === 0) {
+      Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 퀴즈를 시작하세요.");
+      return;
+    }
+    exitDeleteMode();
     const shuffled = [...deck.cards].sort(() => Math.random() - 0.5);
     navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, mode: "solve" });
   };
 
   // 틀린 문제 풀기
   const startRetryWrong = () => {
+    if (deck.cards.length === 0) {
+      Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 다시 시도하세요.");
+      return;
+    }
+
     const threshold = parseInt(wrongThreshold);
-    if (isNaN(threshold) || threshold < 1) return;
+    if (isNaN(threshold) || threshold < 1) {
+      Alert.alert("알림", "유효한 기준 값을 입력하세요.");
+      return;
+    }
+
+    // ✅ 틀린 카드만 필터링
     const filtered = deck.cards.filter((c) => (c.wrong || 0) >= threshold);
-    if (filtered.length === 0) return;
-    exitDeleteMode(); // ✅ 삭제 모드 해제
+
+    if (filtered.length === 0) {
+      Alert.alert("알림", "조건을 만족하는 틀린 카드가 없습니다. 먼저 틀린 기록이 쌓여야 합니다.");
+      return;
+    }
+
+    exitDeleteMode();
     const shuffled = filtered.sort(() => Math.random() - 0.5);
     setModalVisible(false);
     navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, retryWrong: true });
@@ -163,27 +184,36 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
 
       {/* 퀴즈 버튼 */}
       <View style={styles.quizContainer}>
+        {/* 윗줄: 보기 + 정답풀기 */}
         <View style={styles.quizRow}>
           <TouchableOpacity
-            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
             onPress={startQuizView}
           >
             <Text style={[styles.quizText, { color: colors.text }]}>{strings.startQuiz}(보기)</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
             onPress={startQuizSolve}
           >
             <Text style={[styles.quizText, { color: colors.text }]}>{strings.startQuiz}(정답풀기)</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[styles.quizButtonSingle, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={[styles.quizText, { color: colors.text }]}>{strings.retryWrong}</Text>
-        </TouchableOpacity>
+       {/* 아랫줄: 틀린문제풀기 전체 폭 */}
+       <TouchableOpacity
+         style={[styles.quizButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+         onPress={() => {
+           if (deck.cards.length === 0) {
+             Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 다시 시도하세요.");
+             return;
+           }
+           setModalVisible(true); // ✅ 카드가 있을 때만 모달 열기
+         }}
+       >
+         <Text style={[styles.quizText, { color: colors.text }]}>{strings.retryWrong}</Text>
+       </TouchableOpacity>
       </View>
 
       {/* 카드 액션 버튼 */}
@@ -192,7 +222,9 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
           <>
             <TouchableOpacity
               onPress={() =>
-                selectedCards.length === 0 ? setDeleteCardsModalVisible(false) : setDeleteCardsModalVisible(true)
+                selectedCards.length === 0
+                  ? setDeleteCardsModalVisible(false)
+                  : setDeleteCardsModalVisible(true)
               }
             >
               <MaterialIcons name="delete" size={28} color={colors.text} />
@@ -251,7 +283,7 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
         }}
       />
 
-      {/* ───────── 모달 (버튼 순서統一: 취소 → 확인) ───────── */}
+      {/* ───────── 모달 (버튼 순서: 취소 → 확인) ───────── */}
 
       {/* 틀린 문제 모달 */}
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -272,7 +304,6 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
               placeholderTextColor={colors.placeholder}
             />
             <View style={styles.modalButtons}>
-              {/* 취소 → 확인 순서 */}
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
                 onPress={() => setModalVisible(false)}
@@ -301,7 +332,6 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
               {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
             </Text>
             <View style={styles.modalButtons}>
-              {/* 취소 → 확인 순서 */}
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
                 onPress={() => setDeleteDeckModalVisible(false)}
@@ -327,7 +357,6 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
               {strings.deleteSelectedCards || "선택한 카드를 삭제하시겠습니까?"}
             </Text>
             <View style={styles.modalButtons}>
-              {/* 취소 → 확인 순서 */}
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
                 onPress={() => setDeleteCardsModalVisible(false)}
@@ -354,15 +383,40 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "bold" },
   cardCount: { fontSize: 16, marginBottom: 20 },
   quizContainer: { marginBottom: 10 },
-  quizRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
-  quizButton: { flex: 1, padding: 15, marginHorizontal: 5, borderRadius: 8, alignItems: "center", borderWidth: 1 },
-  quizButtonSingle: { padding: 15, borderRadius: 8, alignItems: "center", borderWidth: 1 },
+  quizRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  quizButton: {
+    flex: 1,
+    padding: 15,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  quizButtonFull: {
+    padding: 15,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+  },
   quizText: { fontSize: 16, fontWeight: "bold" },
   actionRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 20, gap: 10 },
-  cardItem: { flexDirection: "row", alignItems: "center", padding: 15, borderRadius: 8, marginBottom: 10, borderWidth: 1 },
+  cardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
   cardItemSelected: { borderColor: "red", borderWidth: 2 },
   cardStats: { fontSize: 12, marginTop: 5 },
-  modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   modalContainer: { width: "80%", maxWidth: 400, padding: 20, borderRadius: 10 },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   modalInput: { borderWidth: 1, borderRadius: 6, padding: 10, marginBottom: 10 },

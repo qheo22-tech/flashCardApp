@@ -1,29 +1,35 @@
+// ✅ 앱 모듈에 적용할 플러그인들
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// ✅ React Native 관련 설정 (기본값이면 그대로 둬도 됨)
 react {
-    // 기본 설정 그대로 두시면 됩니다.
+    // 필요 시 설정
 }
 
+// ✅ 빌드 시 사용되는 옵션들
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
+    // ✅ 상위 프로젝트에서 버전 가져오기
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    // ✅ Android  namespace (패키지 경로)
     namespace "com.flashcardapp"
 
     defaultConfig {
-        applicationId "com.flashcardapp"
+        applicationId "com.flashcardapp"   // ✅ 기본 패키지명
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1          // ✅ 스토어 올릴 때마다 +1
-        versionName "1.0.0"    // ✅ 앱 표시 버전
+        versionCode 1                       // 구글 플레이 업로드 시마다 +1
+        versionName "1.0.0"                 // 앱 버전 표시
     }
 
+    // ✅ 서명 정보
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -33,7 +39,7 @@ android {
         }
 
         release {
-            // ✅ gradle.properties 값 사용 (이미 입력해 두셨으니 그대로 불러옵니다)
+            // gradle.properties 에서 불러오기
             if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
                 storeFile file(MYAPP_RELEASE_STORE_FILE)
                 storePassword MYAPP_RELEASE_STORE_PASSWORD
@@ -43,12 +49,14 @@ android {
         }
     }
 
+    // ✅ 빌드 타입 정의
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            applicationIdSuffix ".debug"   // com.flashcardapp.debug 로 빌드됨
+            debuggable true
         }
         release {
-            // ✅ 이제는 debug 키가 아니라 release 키로 서명
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources false
@@ -57,11 +65,15 @@ android {
     }
 }
 
+// ✅ 의존성 (React Native 기본)
 dependencies {
     implementation("com.facebook.react:react-android")
     implementation("com.facebook.react:hermes-android")
 }
 
+// ✅ React Native 자동 링크 설정
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle");
 applyNativeModulesAppBuildGradle(project)
+
+// ✅ vector-icons 글꼴 빌드 자동 적용
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

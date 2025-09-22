@@ -6,6 +6,8 @@ import { LanguageProvider } from "./src/contexts/LanguageContext";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
 import { LogBox, Alert, Linking, Platform } from "react-native";
 import VersionCheck from "react-native-version-check"; // ✅ 버전 체크 라이브러리 추가
+import { QuillToolbar } from "react-native-cn-quill"; // 툴바는 그대로 사용
+import PlainQuillEditor from "./src/utils/PlainQuillEditor";
 
 // 화면 임포트
 import DeckListScreen from "./src/screens/DeckListScreen";
@@ -14,6 +16,7 @@ import AddCardScreen from "./src/screens/AddCardScreen";
 import CardDetailScreen from "./src/screens/CardDetailScreen";
 import QuizScreen from "./src/screens/QuizScreen";
 import LanguageToggleButton from "./src/components/LanguageToggleButton";
+
 
 const Stack = createNativeStackNavigator();
 
