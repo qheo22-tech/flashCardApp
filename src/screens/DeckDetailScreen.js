@@ -6,22 +6,25 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   TextInput,
   Dimensions,
   Alert,
+  Modal,
 } from "react-native";
 import { LanguageContext } from "../contexts/LanguageContext";
 import { ThemeContext } from "../contexts/ThemeContext";
 import RenderHTML from "react-native-render-html";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import KeywordQuizModal from "../components/modals/KeywordQuizModal"; // ✅ 키워드 모달
+import modalCommon from "../styles/modalCommon"; // 파일 맨 위에 추가
+
 
 // 숨김 변환
 const normalizeHidden = (html) => {
   if (!html) return "";
   return html.replace(
     /<span style="[^"]*(color:\s*transparent|background-color:\s*black)[^"]*">(.*?)<\/span>/gi,
-    (match, _style, innerText) =>
+    (_match, _style, innerText) =>
       innerText
         .split("")
         .map((ch) => `<span class="hidden-text">${ch}</span>`)
@@ -45,21 +48,33 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
   const { deckId } = route.params;
   const deck = decks.find((d) => d.id === deckId);
 
+  // 모드/선택 상태
+  const [deleteMode, setDeleteMode] = useState(false);       // ✅ 삭제 모드 토글
+  const [selectedCards, setSelectedCards] = useState([]);    // ✅ 선택된 카드 ID 목록
+
+  // 틀린 문제 재도전 모달용
   const [modalVisible, setModalVisible] = useState(false);
   const [wrongThreshold, setWrongThreshold] = useState("1");
-  const [deleteDeckModalVisible, setDeleteDeckModalVisible] = useState(false);
-  const [deleteCardsModalVisible, setDeleteCardsModalVisible] = useState(false);
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [selectedCards, setSelectedCards] = useState([]);
+
+  // 키워드 문제풀기 모달
+  const [keywordQuizModalVisible, setKeywordQuizModalVisible] = useState(false);
+  const [selectedKeywords, setSelectedKeywords] = useState([]);
+
+  // 모든 키워드 풀 추출
+  const allKeywords = [...new Set(deck?.cards.flatMap((c) => c.keywords || []))];
 
   if (!deck) {
-    return <Text style={{ color: colors.text }}>{strings.deckNotFound || "Deck not found"}</Text>;
+    return (
+      <Text style={{ color: colors.text }}>
+        {strings.deckNotFound || "Deck not found"}a
+      </Text>
+    );
   }
 
   // 카드 추가
   const addCard = () => navigation.navigate("AddCard", { deckId: deck.id });
 
-  // 카드 선택
+  // 카드 선택 토글
   const toggleSelectCard = (cardId) => {
     setSelectedCards((prev) =>
       prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId]
@@ -68,26 +83,26 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
 
   // 삭제모드 토글
   const toggleDeleteMode = () => {
-    setDeleteMode(!deleteMode);
+    setDeleteMode((v) => !v);
     setSelectedCards([]);
   };
 
-  // 선택 카드 삭제
+  // 선택 카드 삭제 실행
   const handleConfirmDeleteCards = () => {
     const updatedDecks = decks.map((d) =>
-      d.id === deck.id ? { ...d, cards: d.cards.filter((c) => !selectedCards.includes(c.id)) } : d
+      d.id === deck.id
+        ? { ...d, cards: d.cards.filter((c) => !selectedCards.includes(c.id)) }
+        : d
     );
     setDecks(updatedDecks);
     setDeleteMode(false);
     setSelectedCards([]);
-    setDeleteCardsModalVisible(false);
   };
 
-  // 덱 삭제
+  // 덱 삭제 실행
   const handleConfirmDeleteDeck = () => {
     const updatedDecks = decks.filter((d) => d.id !== deck.id);
     setDecks(updatedDecks);
-    setDeleteDeckModalVisible(false);
     navigation.goBack();
   };
 
@@ -97,7 +112,7 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
     setSelectedCards([]);
   };
 
-  // 퀴즈 시작 (보기)
+  // 퀴즈 시작(보기)
   const startQuizView = () => {
     if (deck.cards.length === 0) {
       Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 퀴즈를 시작하세요.");
@@ -108,7 +123,7 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
     navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, mode: "view" });
   };
 
-  // 퀴즈 시작 (정답풀기)
+  // 퀴즈 시작(정답풀기)
   const startQuizSolve = () => {
     if (deck.cards.length === 0) {
       Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 퀴즈를 시작하세요.");
@@ -125,25 +140,39 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
       Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 다시 시도하세요.");
       return;
     }
-
     const threshold = parseInt(wrongThreshold);
     if (isNaN(threshold) || threshold < 1) {
       Alert.alert("알림", "유효한 기준 값을 입력하세요.");
       return;
     }
-
-    // ✅ 틀린 카드만 필터링
     const filtered = deck.cards.filter((c) => (c.wrong || 0) >= threshold);
-
     if (filtered.length === 0) {
-      Alert.alert("알림", "조건을 만족하는 틀린 카드가 없습니다. 먼저 틀린 기록이 쌓여야 합니다.");
+      Alert.alert("알림", "조건을 만족하는 틀린 카드가 없습니다.");
       return;
     }
-
     exitDeleteMode();
     const shuffled = filtered.sort(() => Math.random() - 0.5);
     setModalVisible(false);
     navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, retryWrong: true });
+  };
+
+  // 키워드 문제풀기 시작
+  const startKeywordQuiz = () => {
+    if (selectedKeywords.length === 0) {
+      Alert.alert("알림", "적어도 하나의 키워드를 선택하세요.");
+      return;
+    }
+    const filtered = deck.cards.filter((c) =>
+      (c.keywords || []).some((kw) => selectedKeywords.includes(kw))
+    );
+    if (filtered.length === 0) {
+      Alert.alert("알림", "선택한 키워드에 해당하는 카드가 없습니다.");
+      return;
+    }
+    const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+    setKeywordQuizModalVisible(false);
+    setSelectedKeywords([]);
+    navigation.navigate("Quiz", { deckId: deck.id, cards: shuffled, mode: "keyword" });
   };
 
   // 풀이횟수 초기화
@@ -158,7 +187,12 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
             d.id === deck.id
               ? {
                   ...d,
-                  cards: d.cards.map((c) => ({ ...c, attempts: 0, correct: 0, wrong: 0 })),
+                  cards: d.cards.map((c) => ({
+                    ...c,
+                    attempts: 0,
+                    correct: 0,
+                    wrong: 0,
+                  })),
                 }
               : d
           );
@@ -173,7 +207,14 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
       {/* 제목 + 덱 삭제 */}
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: colors.text }]}>{deck.title}</Text>
-        <TouchableOpacity onPress={() => setDeleteDeckModalVisible(true)}>
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert("덱 삭제", "이 덱을 삭제할까요? 복구할 수 없습니다.", [
+              { text: "취소", style: "cancel" },
+              { text: "삭제", style: "destructive", onPress: handleConfirmDeleteDeck },
+            ])
+          }
+        >
           <MaterialIcons name="delete" size={28} color="red" />
         </TouchableOpacity>
       </View>
@@ -184,36 +225,59 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
 
       {/* 퀴즈 버튼 */}
       <View style={styles.quizContainer}>
-        {/* 윗줄: 보기 + 정답풀기 */}
         <View style={styles.quizRow}>
           <TouchableOpacity
-            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+            style={[
+              styles.quizButton,
+              { backgroundColor: colors.card, borderColor: colors.border, flex: 1 },
+            ]}
             onPress={startQuizView}
           >
-            <Text style={[styles.quizText, { color: colors.text }]}>{strings.startQuiz}(보기)</Text>
+            <Text style={[styles.quizText, { color: colors.text }]}>
+              {strings.startQuiz}(보기)
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.quizButton, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+            style={[
+              styles.quizButton,
+              { backgroundColor: colors.card, borderColor: colors.border, flex: 1 },
+            ]}
             onPress={startQuizSolve}
           >
-            <Text style={[styles.quizText, { color: colors.text }]}>{strings.startQuiz}(정답풀기)</Text>
+            <Text style={[styles.quizText, { color: colors.text }]}>
+              {strings.startQuiz}(정답풀기)
+            </Text>
           </TouchableOpacity>
         </View>
 
-       {/* 아랫줄: 틀린문제풀기 전체 폭 */}
-       <TouchableOpacity
-         style={[styles.quizButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
-         onPress={() => {
-           if (deck.cards.length === 0) {
-             Alert.alert("알림", "카드가 없습니다. 카드를 추가한 후 다시 시도하세요.");
-             return;
-           }
-           setModalVisible(true); // ✅ 카드가 있을 때만 모달 열기
-         }}
-       >
-         <Text style={[styles.quizText, { color: colors.text }]}>{strings.retryWrong}</Text>
-       </TouchableOpacity>
+        {/* 틀린 문제 풀기 */}
+        <TouchableOpacity
+          style={[styles.quizButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => {
+            if (deck.cards.length === 0) {
+              Alert.alert("알림", "카드가 없습니다.");
+              return;
+            }
+            setModalVisible(true);
+          }}
+        >
+          <Text style={[styles.quizText, { color: colors.text }]}>{strings.retryWrong}</Text>
+        </TouchableOpacity>
+
+        {/* 키워드 문제풀기 */}
+        <TouchableOpacity
+          style={[styles.quizButtonFull, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => {
+            if (deck.cards.length === 0) {
+              Alert.alert("알림", "카드가 없습니다.");
+              return;
+            }
+            setKeywordQuizModalVisible(true);
+          }}
+        >
+          <Text style={[styles.quizText, { color: colors.text }]}>키워드 문제풀기</Text>
+        </TouchableOpacity>
       </View>
 
       {/* 카드 액션 버튼 */}
@@ -221,11 +285,20 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
         {deleteMode ? (
           <>
             <TouchableOpacity
-              onPress={() =>
-                selectedCards.length === 0
-                  ? setDeleteCardsModalVisible(false)
-                  : setDeleteCardsModalVisible(true)
-              }
+              onPress={() => {
+                if (selectedCards.length === 0) {
+                  Alert.alert("알림", "삭제할 카드를 선택하세요.");
+                  return;
+                }
+                Alert.alert(
+                  "카드 삭제",
+                  `선택한 ${selectedCards.length}개 카드를 삭제할까요?`,
+                  [
+                    { text: "취소", style: "cancel" },
+                    { text: "삭제", style: "destructive", onPress: handleConfirmDeleteCards },
+                  ]
+                );
+              }}
             >
               <MaterialIcons name="delete" size={28} color={colors.text} />
             </TouchableOpacity>
@@ -252,6 +325,7 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
       <FlatList
         data={deck.cards}
         keyExtractor={(item) => item.id}
+        extraData={{ selectedCards, deleteMode }}
         renderItem={({ item }) => {
           const isSelected = selectedCards.includes(item.id);
           return (
@@ -283,96 +357,57 @@ export default function DeckDetailScreen({ route, navigation, decks, setDecks })
         }}
       />
 
-      {/* ───────── 모달 (버튼 순서: 취소 → 확인) ───────── */}
-
-      {/* 틀린 문제 모달 */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={[styles.modalContainer, { backgroundColor: "#fff" }]}>
-            <Text style={{ marginBottom: 10, color: isDarkMode ? "#000" : colors.text }}>
-              {strings.enterWrongThreshold || "최소 틀린 횟수 입력:"}
-            </Text>
+      {/* ✅ 틀린 문제 풀기 모달 */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={modalCommon.background}>
+          <View style={[modalCommon.container, { backgroundColor: colors.card }]}>
+            <Text style={[modalCommon.title, { color: colors.text }]}>{strings.retryWrong}</Text>
             <TextInput
               style={[
-                styles.modalInput,
-                { color: isDarkMode ? "#000" : colors.text, borderColor: colors.border },
+                modalCommon.input,
+                { borderColor: colors.border, color: colors.text },
               ]}
-              keyboardType="number-pad"
               value={wrongThreshold}
               onChangeText={setWrongThreshold}
-              placeholder="1"
+              keyboardType="numeric"
+              placeholder="기준 횟수"
               placeholderTextColor={colors.placeholder}
             />
-            <View style={styles.modalButtons}>
+            <View style={modalCommon.buttons}>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
+                style={[modalCommon.button, { backgroundColor: colors.card }]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.cancel}</Text>
+                <Text style={{ color: colors.text }}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.accent }]}
+                style={[modalCommon.button, { backgroundColor: "red" }]}
                 onPress={startRetryWrong}
               >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.retryWrong}</Text>
+                <Text style={{ color: "#fff" }}>확인</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* 덱 삭제 모달 */}
-      <Modal visible={deleteDeckModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={[styles.modalContainer, { backgroundColor: "#fff" }]}>
-            <Text style={[styles.modalTitle, { color: isDarkMode ? "#000" : colors.text }]}>
-              {strings.deleteDeck}
-            </Text>
-            <Text style={{ marginBottom: 20, color: isDarkMode ? "#000" : colors.text }}>
-              {strings.deleteConfirm || "선택한 덱을 삭제하시겠습니까?"}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
-                onPress={() => setDeleteDeckModalVisible(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.cancel}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.accent }]}
-                onPress={handleConfirmDeleteDeck}
-              >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.confirm}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+  {/* ✅ 키워드 문제풀기 모달 */}
+<KeywordQuizModal
+  visible={keywordQuizModalVisible}
+  onClose={() => setKeywordQuizModalVisible(false)}
+  onConfirm={startKeywordQuiz}
+  allKeywords={allKeywords}
+  selectedKeywords={selectedKeywords}
+  setSelectedKeywords={setSelectedKeywords}
+  colors={colors}
+  isDarkMode={isDarkMode}
+/>
 
-      {/* 카드 삭제 모달 */}
-      <Modal visible={deleteCardsModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={[styles.modalContainer, { backgroundColor: "#fff" }]}>
-            <Text style={{ marginBottom: 10, color: isDarkMode ? "#000" : colors.text }}>
-              {strings.deleteSelectedCards || "선택한 카드를 삭제하시겠습니까?"}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: isDarkMode ? "#444" : "#ddd" }]}
-                onPress={() => setDeleteCardsModalVisible(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.cancel}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.accent }]}
-                onPress={handleConfirmDeleteCards}
-              >
-                <Text style={[styles.modalButtonText, { color: "#fff" }]}>{strings.confirm || "삭제"}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -395,6 +430,7 @@ const styles = StyleSheet.create({
   quizButtonFull: {
     padding: 15,
     marginHorizontal: 5,
+    marginTop: 10,
     borderRadius: 8,
     alignItems: "center",
     borderWidth: 1,
@@ -411,16 +447,4 @@ const styles = StyleSheet.create({
   },
   cardItemSelected: { borderColor: "red", borderWidth: 2 },
   cardStats: { fontSize: 12, marginTop: 5 },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: { width: "80%", maxWidth: 400, padding: 20, borderRadius: 10 },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  modalInput: { borderWidth: 1, borderRadius: 6, padding: 10, marginBottom: 10 },
-  modalButtons: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
-  modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6 },
-  modalButtonText: { fontSize: 16, fontWeight: "bold" },
 });

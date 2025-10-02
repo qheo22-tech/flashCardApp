@@ -13,58 +13,42 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function NewKeywordModal({ visible, onClose, onAdd, colors }) {
   const [text, setText] = useState("");
+  const [allKeywords, setAllKeywords] = useState([]);
 
-  // 모달 열릴 때 입력칸 초기화
+  // 모달이 열릴 때 입력칸 초기화 + 전역 키워드 불러오기
   useEffect(() => {
-    if (visible) setText("");
+    if (visible) {
+      setText("");
+      loadKeywords();
+    }
   }, [visible]);
 
-  // 🔹 AsyncStorage에서 전역 키워드 로드
   const loadKeywords = async () => {
     try {
       const stored = await AsyncStorage.getItem("keywords");
-      return stored ? JSON.parse(stored) : [];
+      setAllKeywords(stored ? JSON.parse(stored) : []);
     } catch (e) {
       console.warn("키워드 불러오기 실패:", e);
-      return [];
+      setAllKeywords([]);
     }
   };
 
-  // 🔹 AsyncStorage에 전역 키워드 저장
-  const saveKeywords = async (keywords) => {
-    try {
-      await AsyncStorage.setItem("keywords", JSON.stringify(keywords));
-    } catch (e) {
-      console.warn("키워드 저장 실패:", e);
-    }
-  };
-
-  const handleAdd = async () => {
+  const handleAdd = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    try {
-      // 현재 저장된 전역 키워드 불러오기
-      const current = await loadKeywords();
-
-      if (current.includes(trimmed)) {
-        Alert.alert("중복 키워드", `"${trimmed}" 키워드는 이미 존재합니다.`);
-        return;
-      }
-
-      // 새 키워드 추가
-      const updated = [...current, trimmed];
-      await saveKeywords(updated);
-
-      // 부모에도 알리기 (리스트 즉시 반영)
-      if (onAdd) onAdd(trimmed);
-
-      // 입력창 초기화 + 모달 닫기
-      setText("");
-      onClose();
-    } catch (e) {
-      console.warn("새 키워드 추가 실패:", e);
+    // 🔹 중복 검사
+    if (allKeywords.includes(trimmed)) {
+      Alert.alert("중복 키워드", `"${trimmed}" 키워드는 이미 존재합니다.`);
+      return;
     }
+
+    // 부모에 전달 (전역 + 선택 반영은 부모에서)
+    onAdd(trimmed);
+
+    // 입력창 초기화 및 닫기
+    setText("");
+    onClose();
   };
 
   return (

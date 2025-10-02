@@ -1,5 +1,4 @@
-// CardDetailScreen.js
-import React, { useRef, useState, useContext } from "react";
+import React, { useRef, useState, useContext, useMemo, useCallback } from "react";
 import {
   View,
   TouchableOpacity,
@@ -10,7 +9,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import QuillEditor, { QuillToolbar } from "react-native-cn-quill";
-import { ThemeContext } from "../contexts/ThemeContext"; // ✅ 테마 컨텍스트 가져오기
+import { ThemeContext } from "../contexts/ThemeContext";
+import KeywordModal from "../components/modals/KeywordModal";
 
 export default function CardDetailScreen({ navigation, decks, setDecks, route }) {
   const { deckId, cardId } = route.params || {};
@@ -24,22 +24,63 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
   const backRef = useRef(null);
   const [front, setFront] = useState(card.front || "");
   const [back, setBack] = useState(card.back || "");
+  const [keywords, setKeywords] = useState(card.keywords || []); // 카드별 키워드
 
-  // ✅ 전역 색상 가져오기
+  const [keywordModalVisible, setKeywordModalVisible] = useState(false);
+
+  // ✅ 모든 카드의 키워드 풀 (전역 키워드 목록)
+  const initialAllKeywords = useMemo(
+    () => [...new Set(decks.flatMap((d) => d.cards.flatMap((c) => c.keywords || [])))],
+    [decks]
+  );
+  const [allKeywords, setAllKeywords] = useState(initialAllKeywords);
+
   const colors = useContext(ThemeContext);
 
-  // 전체 숨김처리한것 보이기
+  // 키워드 추가 (전역 풀 업데이트)
+  const handleAddKeyword = useCallback((kw) => {
+    setAllKeywords((prev) => [...new Set([...prev, kw])]);
+  }, []);
+
+  // 키워드 삭제 (전역 + 모든 카드에서 제거)
+  const handleDeleteKeyword = useCallback(
+    (kw) => {
+      // 전역 풀에서 제거
+      setAllKeywords((prev) => prev.filter((k) => k !== kw));
+
+      // 모든 카드에서 제거
+      const updatedDecks = decks.map((d) => ({
+        ...d,
+        cards: d.cards.map((c) => ({
+          ...c,
+          keywords: (c.keywords || []).filter((k) => k !== kw),
+        })),
+      }));
+      setDecks(updatedDecks);
+
+      // 현재 카드 state에도 즉시 반영
+      setKeywords((prev) => prev.filter((k) => k !== kw));
+
+      // 스토리지 반영
+      AsyncStorage.setItem("decks", JSON.stringify(updatedDecks)).catch((e) =>
+        console.warn("키워드 삭제 반영 실패:", e)
+      );
+    },
+    [decks, setDecks]
+  );
+
+  // 숨김처리 해제
   const showAllHidden = async (editorRef, html) => {
     try {
       if (!html) return;
       const plainText = html.replace(/<[^>]+>/g, "");
       await editorRef.current?.setContents([{ insert: plainText }]);
     } catch (e) {
-      console.warn("숨김처리한것 보이기 실패:", e);
+      console.warn("숨김처리 실패:", e);
     }
   };
 
-  // 저장
+  // 카드 저장
   const saveCard = async () => {
     try {
       const frontHtml = await frontRef.current?.getHtml();
@@ -50,7 +91,9 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
           ? {
               ...d,
               cards: d.cards.map((c) =>
-                c.id === cardId ? { ...c, front: frontHtml, back: backHtml } : c
+                c.id === cardId
+                  ? { ...c, front: frontHtml, back: backHtml, keywords }
+                  : c
               ),
             }
           : d
@@ -89,7 +132,7 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
     ]);
   };
 
-  // 숨기기 버튼 (front → back 순서로 검사)
+  // 선택 텍스트 숨기기
   const hideSelection = async () => {
     try {
       let range = await frontRef.current?.getSelection();
@@ -112,7 +155,6 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
     }
   };
 
-  // ✅ 전역 테마 기반 Quill 스타일
   const editorCustomStyle = `
     .ql-editor {
       color: ${colors.text} !important;
@@ -131,8 +173,13 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* 🔹 고정된 상단바 */}
-      <View style={[styles.topRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      {/* 상단바 */}
+      <View
+        style={[
+          styles.topRow,
+          { backgroundColor: colors.card, borderBottomColor: colors.border },
+        ]}
+      >
         <TouchableOpacity onPress={saveCard} style={styles.iconButton}>
           <Text style={[styles.iconText, { color: colors.text }]}>💾 저장</Text>
         </TouchableOpacity>
@@ -142,27 +189,23 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
         </TouchableOpacity>
 
         <TouchableOpacity onPress={hideSelection} style={styles.iconButton}>
-          <Text style={[styles.iconText, { color: colors.text }]}>🙈 드래그해서 숨기기</Text>
+          <Text style={[styles.iconText, { color: colors.text }]}>🙈 숨기기</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 🔹 스크롤 가능한 본문 */}
-      <ScrollView style={{ flex: 1 }}>
+      {/* 본문 */}
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
         {/* Front */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Front</Text>
-          <View style={styles.row}>
-            <TouchableOpacity
-              onPress={async () =>
-                showAllHidden(frontRef, await frontRef.current?.getHtml())
-              }
-              style={styles.iconButton}
-            >
-              <Text style={[styles.iconText, { color: colors.accent }]}>
-                👀 숨김처리한것 보이기
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={async () =>
+              showAllHidden(frontRef, await frontRef.current?.getHtml())
+            }
+            style={styles.iconButton}
+          >
+            <Text style={[styles.iconText, { color: colors.accent }]}>👀 보이기</Text>
+          </TouchableOpacity>
         </View>
         <QuillEditor
           style={[styles.editor, { backgroundColor: colors.card }]}
@@ -175,18 +218,14 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
         {/* Back */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Back</Text>
-          <View style={styles.row}>
-            <TouchableOpacity
-              onPress={async () =>
-                showAllHidden(backRef, await backRef.current?.getHtml())
-              }
-              style={styles.iconButton}
-            >
-              <Text style={[styles.iconText, { color: colors.accent }]}>
-                👀 숨김처리한것 보이기
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={async () =>
+              showAllHidden(backRef, await backRef.current?.getHtml())
+            }
+            style={styles.iconButton}
+          >
+            <Text style={[styles.iconText, { color: colors.accent }]}>👀 보이기</Text>
+          </TouchableOpacity>
         </View>
         <QuillEditor
           style={[styles.editor, { backgroundColor: colors.card }]}
@@ -195,7 +234,61 @@ export default function CardDetailScreen({ navigation, decks, setDecks, route })
           customStyles={[editorCustomStyle]}
         />
         <QuillToolbar editor={backRef} options="full" theme="light" />
+
+        {/* Keywords */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Keywords</Text>
+          <TouchableOpacity
+            onPress={() => setKeywordModalVisible(true)}
+            style={styles.iconButton}
+          >
+            <Text style={[styles.iconText, { color: colors.accent }]}>➕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 등록된 키워드 */}
+        <View style={styles.keywordList}>
+          {keywords.map((kw, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.keywordChip,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={{ color: colors.text, fontSize: 12 }}>#{kw}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setKeywords((prev) => prev.filter((k) => k !== kw));
+                }}
+                style={styles.removeButton}
+              >
+                <Text style={{ color: "red", fontSize: 12 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
       </ScrollView>
+
+      {/* ✅ 키워드 모달 */}
+      <KeywordModal
+        visible={keywordModalVisible}
+        onClose={() => setKeywordModalVisible(false)}
+        onConfirm={(selected) => {
+          // 카드에는 선택된 키워드만 저장
+          setKeywords(selected);
+
+          // 전역 풀은 그대로 유지 (allKeywords 건드리지 않음)
+          // 🔑 중요: 체크 해제는 전역 키워드 삭제가 아님
+          setKeywordModalVisible(false);
+        }}
+        onAddKeyword={handleAddKeyword}   // 새 키워드 추가 시 전역 풀 갱신
+        onDeleteKeyword={handleDeleteKeyword} // 삭제 버튼 눌렀을 때만 전역 풀에서 제거
+        allKeywords={allKeywords}
+        selectedKeywords={keywords}
+        colors={colors}
+      />
+
     </View>
   );
 }
@@ -215,13 +308,26 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   sectionTitle: { fontSize: 18, fontWeight: "bold" },
-  row: { flexDirection: "row" },
   iconButton: { marginLeft: 10, padding: 5 },
   iconText: { fontSize: 14 },
   editor: {
-    height: 160, // ✅ AddCard처럼 크기 줄여서 편하게 입력 가능
+    height: 160,
     borderRadius: 8,
     margin: 10,
     padding: 10,
+  },
+  keywordList: { flexDirection: "row", flexWrap: "wrap", margin: 10 },
+  keywordChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    borderWidth: 1,
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  removeButton: {
+    marginLeft: 6,
   },
 });
